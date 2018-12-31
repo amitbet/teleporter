@@ -1,8 +1,9 @@
 package main
 
 import (
-	"log"
 	"net/http"
+
+	"github.com/amitbet/teleporter/logger"
 )
 
 func startHTTP(port string) {
@@ -11,6 +12,6 @@ func startHTTP(port string) {
 		w.Write([]byte("no comment")) // clientjson
 	})
 
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	logger.Fatal("Error in http listener: ", http.ListenAndServe(":"+port, nil))
 
 }

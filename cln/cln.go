@@ -2,10 +2,11 @@ package main
 
 import (
 	"crypto/tls"
-	"log"
+	"encoding/json"
 	"net"
 	"os"
 
+	"github.com/amitbet/teleporter/common"
 	"github.com/amitbet/teleporter/logger"
 	"github.com/armon/go-socks5"
 	"github.com/pions/dtls/pkg/dtls"
@@ -38,15 +39,30 @@ func main() {
 	// sess := muxado.Client(conn, nil)
 
 	sess := NewMultiMuxClient1()
+	host, _ := os.Hostname()
+	config := common.ClientConfig{
+		ClientId:       host,
+		NetworkExports: []string{"*"},
+		Mapping:        make(map[string]string),
+	}
+	config.Mapping[""] = ""
+	jstr, err := json.Marshal(config)
+	if err != nil {
+		logger.Error("problem in client config json marshaling: ", err)
+	}
+
 	for i := 0; i < 10; i++ {
 		conn1 := dialConnection(typ, serverAddress)
+
+		// write the client ID & Configuration to the server
+		common.WriteString(conn1, string(jstr))
 		sess.AddConnection(conn1)
 	}
 
 	for {
 		sconn, err := sess.Accept()
 		if err != nil {
-			log.Println("Can't accept, connection is dead", err)
+			logger.Error("Can't accept, connection is dead", err)
 			break
 		}
 		logger.Debug("mux connection accepted")
@@ -66,14 +82,14 @@ func dialConnection(typ string, serverAddress string) net.Conn {
 	if typ == "tls" {
 		conn, err = tls.Dial("tcp", serverAddress, tlsconfig)
 		if err != nil {
-			log.Println("Cannot connect to target: ", err)
+			logger.Error("Cannot connect to target: ", err)
 			os.Exit(0)
 		}
 	} else if typ == "dtls" {
 		logger.Debug("running on dtls")
 		addr, err := net.ResolveUDPAddr("udp", serverAddress)
 		if err != nil {
-			log.Println("Cannot resolve address: ", serverAddress, err)
+			logger.Error("Cannot resolve address: ", serverAddress, err)
 			os.Exit(0)
 		}
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"io"
-	"log"
 	"net"
 	"time"
 
@@ -40,7 +39,7 @@ func (c *client) listen() {
 		// Accept a TCP connection
 		conn, err := c.listener.Accept()
 		if err != nil {
-			log.Println("Closed tcp server: ", err)
+			logger.Error("Closed tcp server: ", err)
 			return
 		}
 		//5s to get the socks establishing over with or bust
@@ -63,7 +62,7 @@ func (c *client) newSocksConn(conn net.Conn) {
 
 	//do auth
 	if err := auth(conn, c.Username, c.Password); err != nil {
-		log.Println(err)
+		logger.Error("auth problem: ", err)
 		return
 	}
 
@@ -71,7 +70,7 @@ func (c *client) newSocksConn(conn net.Conn) {
 	//open mux connection back
 	tunnel, err := c.tunnel.Open()
 	if err != nil {
-		log.Println("Error establishing session", err)
+		logger.Error("Error establishing session", err)
 		return
 	}
 	defer tunnel.Close()
@@ -107,7 +106,7 @@ type closeWriter interface {
 // down a dedicated channel
 func proxy(dst io.Writer, src io.Reader, errCh chan error) {
 	q, err := io.Copy(dst, src)
-	log.Println(q)
+	logger.Infof("transferred %d bytes", q)
 	if tcpConn, ok := dst.(closeWriter); ok {
 		tcpConn.CloseWrite()
 	}

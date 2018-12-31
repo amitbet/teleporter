@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
+
+	"github.com/amitbet/teleporter/logger"
 )
 
 type config struct {
@@ -17,14 +18,14 @@ type config struct {
 func loadConfig() (conf *config, err error) {
 	jsonBlob, err := ioutil.ReadFile("config.json")
 	if err != nil {
-		log.Println("Failed to load config", err)
+		logger.Error("Failed to load config", err)
 		return
 	}
 
 	conf = &config{}
 	err = json.Unmarshal(jsonBlob, conf)
 	if err != nil {
-		log.Println("Failed to parse config", err)
+		logger.Error("Failed to parse config", err)
 		return
 	}
 

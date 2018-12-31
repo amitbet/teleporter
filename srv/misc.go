@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"math/rand"
 	"time"
+
+	"github.com/amitbet/teleporter/logger"
 )
 
 //https://siongui.github.io/2015/04/13/go-generate-random-string/
@@ -33,7 +34,7 @@ func updatejson() {
 
 	j, err := json.Marshal(slice)
 	if err != nil {
-		log.Println(err)
+		logger.Error(err)
 		clientjson = []byte("[]")
 		return
 	}

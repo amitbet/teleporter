@@ -2,9 +2,9 @@ package main
 
 import (
 	"io"
-	"log"
 	"net"
 
+	"github.com/amitbet/teleporter/logger"
 	"github.com/inconshreveable/muxado"
 )
 
@@ -39,7 +39,7 @@ func (m *MultiMuxClient) handleSession(sess muxado.Session) {
 	for {
 		sconn, err := sess.Accept()
 		if err != nil {
-			log.Println("Can't accept, connection is dead", err)
+			logger.Error("Can't accept, connection is dead", err)
 			break
 		}
 		m.sconns <- sconn

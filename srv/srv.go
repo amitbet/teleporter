@@ -2,12 +2,13 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"time"
 
+	"github.com/amitbet/teleporter/common"
 	"github.com/amitbet/teleporter/logger"
 	"github.com/inconshreveable/muxado"
 	"github.com/pions/dtls/pkg/dtls"
@@ -21,7 +22,7 @@ var clients = make(map[muxado.Session]*client)
 
 const banner = `Teleproxy server!`
 
-func createListener(listenerType string) (net.Listener, error) {
+func createControlListener(listenerType string) (net.Listener, error) {
 	var controlListener net.Listener
 	var err error
 	controlAddr := ":" + cfg.CnCPort
@@ -67,26 +68,31 @@ func createListener(listenerType string) (net.Listener, error) {
 	return controlListener, nil
 }
 
+func createSocks5Listener(socksAddr string) (net.Listener, error) {
+
+	socksListener, err := net.Listen("tcp", socksAddr)
+	if err != nil {
+		logger.Error("Error starting Socks listener", err)
+		return nil, err
+	}
+	logger.Infof("Started new SOCKS listener at port %v\n", socksListener.Addr().String())
+	return socksListener, nil
+}
+
 //Listen create a listener and serve on it
 func listen(listenerType string) error {
 
-	controlListener, err := createListener(listenerType)
+	controlListener, err := createControlListener(listenerType)
 	if err != nil {
 		return err
 	}
 
 	socksAddr := ":" + cfg.SocksPort
-	var socksListener net.Listener
-	//Setup tcp server on a known port
-
-	socksListener, err = net.Listen("tcp", socksAddr)
+	socksListener, err := createSocks5Listener(socksAddr)
 	if err != nil {
-		log.Println("Error starting Socks listener", err)
 		return err
 	}
-	logger.Info("Started new SOCKS listener at port %v\n", socksListener.Addr().String())
 
-	//pass := "b2whr9" // randomString(6)
 	defer controlListener.Close()
 	for {
 		conn, err := controlListener.Accept()
@@ -94,6 +100,23 @@ func listen(listenerType string) error {
 			logger.Error("TCP accept failed: %s\n", err)
 			continue
 		}
+
+		clientConfigStr, err := common.ReadString(conn)
+		if err != nil {
+			logger.Error("Client connect, failed while reading client header: %s\n", err)
+			continue
+		}
+
+		logger.Debug("client connected, read client config string: ", clientConfigStr)
+		cconfig := common.ClientConfig{}
+		err = json.Unmarshal([]byte(clientConfigStr), &cconfig)
+		if err != nil {
+			logger.Error("Client connect, error unmarshaling clientConfig: %s\n", err)
+			continue
+		}
+		id := cconfig.ClientId
+		logger.Info("Client connected, id: ", id)
+
 		go handle(conn, socksListener, cfg.SocksPass)
 	}
 }
@@ -109,10 +132,10 @@ func handle(conn net.Conn, socksListener net.Listener, pass string) {
 	clients[session] = client
 	go client.listen()
 
-	//blocks until the muxado connnection is closed
+	// blocks until the muxado connnection is closed
 	client.wait()
 
-	//delete client
+	// delete client
 	delete(clients, session)
 }
 
@@ -121,7 +144,8 @@ func main() {
 	var err error
 	cfg, err = loadConfig()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal("Error loading config", err)
+		return
 	}
 
 	typ := "tls"
@@ -130,13 +154,13 @@ func main() {
 	}
 	logger.Debug("Using Connection type: ", typ)
 
-	//should/could possibly be lower or smth
+	//should/could possibly be lower
 	schedule(updatejson, 1000*time.Millisecond)
 	//schedule(func() { log.Println(clientjson) }, 2000*time.Millisecond)
 
 	go startHTTP(cfg.HTTPPort)
-	log.Println("Started HTTP server at port " + cfg.HTTPPort)
+	logger.Info("Started HTTP server at port ", cfg.HTTPPort)
 
-	//run main tcp server
+	// run main tcp server
 	listen(typ)
 }
