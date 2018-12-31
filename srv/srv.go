@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/amitbet/teleporter/logger"
 	"github.com/inconshreveable/muxado"
 	"github.com/pions/dtls/pkg/dtls"
 )
@@ -20,36 +21,38 @@ var clients = make(map[muxado.Session]*client)
 
 const banner = `Teleproxy server!`
 
-//Listen create a listener and serve on it
-func listen(typ string) error {
+func createListener(listenerType string) (net.Listener, error) {
+	var controlListener net.Listener
+	var err error
+	controlAddr := ":" + cfg.CnCPort
+
 	cer, err := tls.LoadX509KeyPair("server.crt", "server.key")
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	tlsconfig := &tls.Config{Certificates: []tls.Certificate{cer}}
-	var controlListener net.Listener
-	controlAddr := ":" + cfg.CnCPort
-	if typ == "tls" {
+
+	switch listenerType {
+	case "tls":
 		controlListener, err = tls.Listen("tcp", controlAddr, tlsconfig)
 
 		//l, err := net.Listen("tcp", ":"+cfg.CnCPort)
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		log.Println("Started CnC server at port " + cfg.CnCPort)
-	} else if typ == "dtls" {
+		logger.Debug("Started CnC server at port " + cfg.CnCPort)
+	case "dtls":
 		fmt.Println("running on dtls")
 		addr, err := net.ResolveUDPAddr("udp", controlAddr)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		certificate, privateKey, err := dtls.GenerateSelfSigned()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// Prepare the configuration of the DTLS connection
 		config := &dtls.Config{Certificate: certificate, PrivateKey: privateKey}
@@ -58,8 +61,18 @@ func listen(typ string) error {
 		controlListener, err = dtls.Listen("udp", addr, config)
 
 		if err != nil {
-			return err
+			return nil, err
 		}
+	}
+	return controlListener, nil
+}
+
+//Listen create a listener and serve on it
+func listen(listenerType string) error {
+
+	controlListener, err := createListener(listenerType)
+	if err != nil {
+		return err
 	}
 
 	socksAddr := ":" + cfg.SocksPort
