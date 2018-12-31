@@ -101,34 +101,37 @@ func listen(listenerType string) error {
 			continue
 		}
 
-		clientConfigStr, err := common.ReadString(conn)
-		if err != nil {
-			logger.Error("Client connect, failed while reading client header: %s\n", err)
-			continue
-		}
-
-		logger.Debug("client connected, read client config string: ", clientConfigStr)
-		cconfig := common.ClientConfig{}
-		err = json.Unmarshal([]byte(clientConfigStr), &cconfig)
-		if err != nil {
-			logger.Error("Client connect, error unmarshaling clientConfig: %s\n", err)
-			continue
-		}
-		id := cconfig.ClientId
-		logger.Info("Client connected, id: ", id)
-
 		go handle(conn, socksListener, cfg.SocksPass)
 	}
 }
 
 // handle manages a new physical client connection comming into the control port
 func handle(conn net.Conn, socksListener net.Listener, pass string) {
+
+	// read client configuration
+	clientConfigStr, err := common.ReadString(conn)
+	if err != nil {
+		logger.Error("Client connect, failed while reading client header: %s\n", err)
+		return
+	}
+
+	logger.Debug("client connected, read client config string: ", clientConfigStr)
+	cconfig := common.ClientConfig{}
+	err = json.Unmarshal([]byte(clientConfigStr), &cconfig)
+	if err != nil {
+		logger.Error("Client connect, error unmarshaling clientConfig: %s\n", err)
+		return
+	}
+	cid := cconfig.ClientId
+	logger.Info("Client connected, id: ", cid)
+
 	// Setup server side of muxado
 	session := muxado.Server(conn, nil)
 	defer session.Close()
 
 	//create new Client
 	client := newClient(session, socksListener, cfg.SocksUsername, pass)
+
 	clients[session] = client
 	go client.listen()
 

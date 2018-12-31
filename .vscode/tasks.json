@@ -7,21 +7,33 @@
             "label": "build srv",
             "type": "shell",
             "command": "go",
-            "args": ["build","./srv"],
+            "args": [
+                "build",
+                "./srv"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
+            },
+            "problemMatcher": [
+                "$go"
+            ]
         },
         {
             "label": "build cln",
             "type": "shell",
             "command": "go",
-            "args": ["build","./cln"],
+            "args": [
+                "build",
+                "./cln"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
+            },
+            "problemMatcher": [
+                "$go"
+            ]
         }
     ]
 }

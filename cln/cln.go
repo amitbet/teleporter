@@ -31,14 +31,6 @@ func main() {
 
 	serverAddress := os.Args[1]
 
-	// conn := dialConnection(typ, serverAddress)
-	// sess := NewMultiMuxClient(conn)
-
-	//---- without multimux
-	// conn := dialConnection(typ, serverAddress)
-	// sess := muxado.Client(conn, nil)
-
-	sess := NewMultiMuxClient1()
 	host, _ := os.Hostname()
 	config := common.ClientConfig{
 		ClientId:       host,
@@ -51,6 +43,7 @@ func main() {
 		logger.Error("problem in client config json marshaling: ", err)
 	}
 
+	sess := NewMultiMuxClient()
 	for i := 0; i < 10; i++ {
 		conn1 := dialConnection(typ, serverAddress)
 
@@ -68,9 +61,8 @@ func main() {
 		logger.Debug("mux connection accepted")
 		go server.ServeConn(sconn)
 	}
-	// Simple way to keep program running until CTRL-C is pressed.
-	//<-make(chan struct{})
 }
+
 func dialConnection(typ string, serverAddress string) net.Conn {
 
 	tlsconfig := &tls.Config{
