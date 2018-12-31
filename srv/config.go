@@ -10,6 +10,8 @@ type config struct {
 	CnCPort       string
 	HTTPPort      string
 	SocksUsername string
+	SocksPort     string
+	SocksPass     string
 }
 
 func loadConfig() (conf *config, err error) {

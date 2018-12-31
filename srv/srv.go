@@ -18,13 +18,7 @@ var clientjson []byte
 
 var clients = make(map[muxado.Session]*client)
 
-const banner = `
- _ ____   ___ __  _ ____  ___ __ ___ __  __
-| '__\ \ / / '_ \| '__\ \/ / '_ ` + "`" + ` _ \\ \/ /
-| |   \ V /| |_) | |   >  <| | | | | |>  < 
-|_|    \_/ | .__/|_|  /_/\_\_| |_| |_/_/\_\
-           |_|                 !TRUMP!                     
-`
+const banner = `Teleproxy server!`
 
 //Listen create a listener and serve on it
 func listen(typ string) error {
@@ -68,7 +62,7 @@ func listen(typ string) error {
 		}
 	}
 
-	socksAddr := ":8485"
+	socksAddr := ":" + cfg.SocksPort
 	var socksListener net.Listener
 	//Setup tcp server on a known port
 
@@ -78,7 +72,7 @@ func listen(typ string) error {
 		return err
 	}
 
-	pass := "b2whr9" // randomString(6)
+	//pass := "b2whr9" // randomString(6)
 	defer controlListener.Close()
 	for {
 		conn, err := controlListener.Accept()
@@ -86,11 +80,11 @@ func listen(typ string) error {
 			log.Printf("TCP accept failed: %s\n", err)
 			continue
 		}
-		go handle(conn, socksListener, pass)
+		go handle(conn, socksListener, cfg.SocksPass)
 	}
 }
 
-//handle a new physical client connection comming into the control port
+// handle manages a new physical client connection comming into the control port
 func handle(conn net.Conn, socksListener net.Listener, pass string) {
 	// Setup server side of muxado
 	session := muxado.Server(conn, nil)

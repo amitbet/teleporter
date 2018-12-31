@@ -1,5 +1,7 @@
 {
 	"CnCPort":  "8484",
 	"HTTPPort": "8480",
+	"SocksPort":"8485",
+	"SocksPass":"aaaaaaaaaaaaaa",
 	"SocksUsername": "rvprx"
 }
