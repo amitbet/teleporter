@@ -2,11 +2,11 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net"
 	"os"
 
+	"github.com/amitbet/teleporter/logger"
 	"github.com/armon/go-socks5"
 	"github.com/pions/dtls/pkg/dtls"
 )
@@ -14,12 +14,12 @@ import (
 func main() {
 	typ := "tls"
 	if len(os.Args) < 2 {
-		fmt.Println("Invalid arguments.\n cln.exe <address:port> \nexample usage: cln.exe 127.0.0.1:8484")
+		logger.Error("Invalid arguments.\n cln.exe <address:port> \nexample usage: cln.exe 127.0.0.1:8484")
 		os.Exit(0)
 	}
 	if len(os.Args) >= 3 {
 		typ = os.Args[2]
-		fmt.Println("found type: ", typ)
+		logger.Info("Using connection type: ", typ)
 	}
 
 	conf := &socks5.Config{}
@@ -49,7 +49,7 @@ func main() {
 			log.Println("Can't accept, connection is dead", err)
 			break
 		}
-		fmt.Println("mux connection accepted")
+		logger.Debug("mux connection accepted")
 		go server.ServeConn(sconn)
 	}
 	// Simple way to keep program running until CTRL-C is pressed.
@@ -70,7 +70,7 @@ func dialConnection(typ string, serverAddress string) net.Conn {
 			os.Exit(0)
 		}
 	} else if typ == "dtls" {
-		fmt.Println("running on dtls")
+		logger.Debug("running on dtls")
 		addr, err := net.ResolveUDPAddr("udp", serverAddress)
 		if err != nil {
 			log.Println("Cannot resolve address: ", serverAddress, err)

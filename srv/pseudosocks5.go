@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net"
 )
 
@@ -66,7 +65,7 @@ func getauthdata(reader io.Reader, writer io.Writer) (string, string, error) {
 		return "", "", err
 	}
 
-	log.Println("Auth: " + string(user) + " " + string(pass))
+	//log.Println("Auth: " + string(user) + " " + string(pass))
 	return string(user), string(pass), nil
 }
 

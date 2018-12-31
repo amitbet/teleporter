@@ -44,7 +44,7 @@ func createListener(listenerType string) (net.Listener, error) {
 
 		logger.Debug("Started CnC server at port " + cfg.CnCPort)
 	case "dtls":
-		fmt.Println("running on dtls")
+		logger.Debug("running on dtls")
 		addr, err := net.ResolveUDPAddr("udp", controlAddr)
 		if err != nil {
 			return nil, err
@@ -84,13 +84,14 @@ func listen(listenerType string) error {
 		log.Println("Error starting Socks listener", err)
 		return err
 	}
+	logger.Info("Started new SOCKS listener at port %v\n", socksListener.Addr().String())
 
 	//pass := "b2whr9" // randomString(6)
 	defer controlListener.Close()
 	for {
 		conn, err := controlListener.Accept()
 		if err != nil {
-			log.Printf("TCP accept failed: %s\n", err)
+			logger.Error("TCP accept failed: %s\n", err)
 			continue
 		}
 		go handle(conn, socksListener, cfg.SocksPass)
@@ -107,7 +108,6 @@ func handle(conn net.Conn, socksListener net.Listener, pass string) {
 	client := newClient(session, socksListener, cfg.SocksUsername, pass)
 	clients[session] = client
 	go client.listen()
-	log.Printf("Started new SOCKS listener at port %v, auth %v:%v\n", socksListener.Addr().String(), client.Username, client.Password)
 
 	//blocks until the muxado connnection is closed
 	client.wait()
@@ -127,9 +127,9 @@ func main() {
 	typ := "tls"
 	if len(os.Args) >= 2 {
 		typ = os.Args[1]
-		fmt.Println("found type: ", typ)
 	}
-	fmt.Println("found type: ", typ)
+	logger.Debug("Using Connection type: ", typ)
+
 	//should/could possibly be lower or smth
 	schedule(updatejson, 1000*time.Millisecond)
 	//schedule(func() { log.Println(clientjson) }, 2000*time.Millisecond)

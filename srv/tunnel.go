@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/amitbet/teleporter/logger"
 	"github.com/inconshreveable/muxado"
 )
 
@@ -51,7 +52,7 @@ func (c *client) listen() {
 
 func (c *client) wait() {
 	code, err, debug := c.tunnel.Wait() //wait for close
-	log.Printf("Session mux shutdown with code %v error %v debug %v", code, err, debug)
+	logger.Info("Session mux shutdown with code %v error %v debug %v", code, err, debug)
 
 	//we are done here, shut down the tcp listener
 	//c.listener.Close()
@@ -66,6 +67,7 @@ func (c *client) newSocksConn(conn net.Conn) {
 		return
 	}
 
+	logger.Debug("server: open mux connection back")
 	//open mux connection back
 	tunnel, err := c.tunnel.Open()
 	if err != nil {
