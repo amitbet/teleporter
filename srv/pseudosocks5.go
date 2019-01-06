@@ -102,6 +102,7 @@ func auth(conn net.Conn, username string, password string) error {
 
 			//read username/password
 			u, p, err := getauthdata(bufConn, conn)
+			//logger.Debugf("user: %s, pass: %s",u, p)
 			if (err != nil) || (u != username || p != password) {
 				conn.Write([]byte{userAuthVersion, authFailure})
 				return fmt.Errorf("[AUTH] Username/password auth failed: %v", err)

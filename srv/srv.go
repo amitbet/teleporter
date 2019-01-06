@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
-	"time"
 
 	"github.com/amitbet/teleporter/common"
 	"github.com/amitbet/teleporter/logger"
@@ -18,7 +18,7 @@ var cfg *config
 
 var clientjson []byte
 
-var clients = make(map[muxado.Session]*client)
+var clients = make(map[string]*client)
 
 const banner = `Teleproxy server!`
 
@@ -79,9 +79,53 @@ func createSocks5Listener(socksAddr string) (net.Listener, error) {
 	return socksListener, nil
 }
 
+// handles an incomming socks connection
+func handleSocks(listener net.Listener) {
+	for {
+		// Accept a TCP connection
+		conn, err := listener.Accept()
+		if err != nil {
+			logger.Error("Closed tcp server: ", err)
+			continue
+		}
+		//5s to get the socks establishing over with or bust
+		////conn.SetDeadline(time.Now().Add(5 * time.Second))
+		//do auth
+		if err := auth(conn, cfg.SocksUsername, cfg.SocksPass); err != nil {
+			logger.Error("auth problem: ", err)
+			continue
+		}
+		req, err := NewRequest(conn)
+		if err != nil {
+			logger.Error("Error in reading request from socks5 connection: ", err)
+			continue
+		}
+
+		address := req.DestAddr.Address()
+		for _, cl := range clients {
+			if cl.CanAccept(address) {
+
+				// adding the request to this task, so it can be handled on the other side -----
+				buff := bytes.Buffer{}
+				req.WriteTo(&buff)
+
+				task := TunnelTask{
+					Conn:    conn,
+					PreSend: buff.Bytes(),
+				}
+				//logger.Debug("PreSend: ", task.PreSend)
+				cl.IncomingConns <- &task
+				break
+			}
+		}
+
+		//	go c.newSocksConn(conn)
+	}
+}
+
 //Listen create a listener and serve on it
 func listen(listenerType string) error {
-
+	//incomingChan := make(chan net.Conn)
 	controlListener, err := createControlListener(listenerType)
 	if err != nil {
 		return err
@@ -92,6 +136,7 @@ func listen(listenerType string) error {
 	if err != nil {
 		return err
 	}
+	go handleSocks(socksListener)
 
 	defer controlListener.Close()
 	for {
@@ -101,12 +146,12 @@ func listen(listenerType string) error {
 			continue
 		}
 
-		go handle(conn, socksListener, cfg.SocksPass)
+		go handleClientConn(conn)
 	}
 }
 
 // handle manages a new physical client connection comming into the control port
-func handle(conn net.Conn, socksListener net.Listener, pass string) {
+func handleClientConn(conn net.Conn) {
 
 	// read client configuration
 	clientConfigStr, err := common.ReadString(conn)
@@ -129,17 +174,24 @@ func handle(conn net.Conn, socksListener net.Listener, pass string) {
 	session := muxado.Server(conn, nil)
 	defer session.Close()
 
-	//create new Client
-	client := newClient(session, socksListener, cfg.SocksUsername, pass)
-
-	clients[session] = client
-	go client.listen()
+	var theClient *client
+	var ok bool
+	theClient, ok = clients[cid]
+	if !ok {
+		//create new Client
+		theClient = newClient(&cconfig)
+		clients[cid] = theClient
+		theClient.AddTunnel(session)
+		//go theClient.listen()
+	} else {
+		theClient.AddTunnel(session)
+	}
 
 	// blocks until the muxado connnection is closed
-	client.wait()
+	session.Wait()
 
 	// delete client
-	delete(clients, session)
+	//delete(clients, session)
 }
 
 func main() {
@@ -158,7 +210,7 @@ func main() {
 	logger.Debug("Using Connection type: ", typ)
 
 	//should/could possibly be lower
-	schedule(updatejson, 1000*time.Millisecond)
+	//schedule(updatejson, 1000*time.Millisecond)
 	//schedule(func() { log.Println(clientjson) }, 2000*time.Millisecond)
 
 	go startHTTP(cfg.HTTPPort)

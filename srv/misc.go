@@ -1,11 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"math/rand"
 	"time"
-
-	"github.com/amitbet/teleporter/logger"
 )
 
 //https://siongui.github.io/2015/04/13/go-generate-random-string/
@@ -20,26 +17,26 @@ func randomString(strlen int) string {
 }
 
 //writes some shiny new json
-func updatejson() {
-	if len(clients) == 0 {
-		clientjson = []byte("[]")
-		return
-	}
-	slice := make([]map[string]string, len(clients))
-	i := 0
-	for _, v := range clients {
-		slice[i] = map[string]string{"username": v.Username, "password": v.Password, "remoteip": v.Remoteip, "port": v.Port}
-		i++
-	}
+// func updatejson() {
+// 	if len(clients) == 0 {
+// 		clientjson = []byte("[]")
+// 		return
+// 	}
+// 	slice := make([]map[string]string, len(clients))
+// 	i := 0
+// 	for _, v := range clients {
+// 		slice[i] = map[string]string{"username": v.Username, "password": v.Password, "remoteip": v.Remoteip, "port": v.Port}
+// 		i++
+// 	}
 
-	j, err := json.Marshal(slice)
-	if err != nil {
-		logger.Error(err)
-		clientjson = []byte("[]")
-		return
-	}
-	clientjson = j
-}
+// 	j, err := json.Marshal(slice)
+// 	if err != nil {
+// 		logger.Error(err)
+// 		clientjson = []byte("[]")
+// 		return
+// 	}
+// 	clientjson = j
+// }
 
 //http://stackoverflow.com/questions/16466320/is-there-a-way-to-do-repetitive-tasks-at-intervals-in-golang
 func schedule(what func(), delay time.Duration) chan bool {

@@ -2,7 +2,7 @@ package logger
 
 import "fmt"
 
-var simpleLogger = SimpleLogger{LogLevelInfo}
+var simpleLogger = SimpleLogger{LogLevelDebug}
 
 func SetLogLevel(logLevel string) {
 	level := GetLogLevel(logLevel)
