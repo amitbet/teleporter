@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/amitbet/go-socks5"
 	"github.com/amitbet/teleporter/common"
 	"github.com/amitbet/teleporter/logger"
 	"github.com/inconshreveable/muxado"
@@ -55,16 +56,14 @@ func (t *Tunnel) Run() {
 }
 
 type client struct {
-	tunnels []*Tunnel
-	queue   chan net.Conn // queue of connections for worker sessions to handle
-	// username      string
-	// password      string
+	tunnels       []*Tunnel
 	IncomingConns chan *TunnelTask
 	Config        *common.ClientConfig
 	Name          string
-	//Remoteip   string
-	//Port       string
-	//listener   net.Listener  // ---- remove ----
+	// username      string
+	// password      string
+	// Remoteip   	 string
+	// Port       	 string
 }
 
 // CanAccept checks if the given target address exists in the shared network ip/domains for this client
@@ -135,7 +134,7 @@ func (t *Tunnel) newSocksConn(task *TunnelTask) {
 	defer muxConn.Close()
 
 	//send "no auth" message & receive response
-	muxConn.Write([]byte{socks5Version, 1, NoAuth})
+	muxConn.Write([]byte{5, 1, socks5.NoAuth})
 	reply := []byte{0, 0}
 	io.ReadAtLeast(muxConn, reply, 2)
 
@@ -164,7 +163,7 @@ type closeWriter interface {
 	CloseWrite() error
 }
 
-// proxy is used to suffle data from src to destination, and sends errors
+// proxy is used to shuffle data from src to destination, and sends errors
 // down a dedicated channel
 func proxy(dst io.Writer, src io.Reader, errCh chan error) {
 	q, err := io.Copy(dst, src)

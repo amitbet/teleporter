@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
+	"github.com/amitbet/go-socks5"
 	"github.com/amitbet/teleporter/common"
 	"github.com/amitbet/teleporter/logger"
 	"github.com/inconshreveable/muxado"
@@ -20,7 +22,7 @@ var clientjson []byte
 
 var clients = make(map[string]*client)
 
-const banner = `Teleproxy server!`
+const banner = `Teleproxy node!`
 
 func createControlListener(listenerType string) (net.Listener, error) {
 	var controlListener net.Listener
@@ -88,16 +90,19 @@ func handleSocks(listener net.Listener) {
 			logger.Error("Closed tcp server: ", err)
 			continue
 		}
-		//5s to get the socks establishing over with or bust
-		////conn.SetDeadline(time.Now().Add(5 * time.Second))
-		//do auth
-		if err := auth(conn, cfg.SocksUsername, cfg.SocksPass); err != nil {
-			logger.Error("auth problem: ", err)
-			continue
+		// 5s to get the socks establishing over with
+		conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+		// connect & authenticate
+		cator := socks5.UserPassAuthenticator{
+			Credentials: socks5.StaticCredentials{
+				cfg.SocksUsername: cfg.SocksPass,
+			},
 		}
-		req, err := NewRequest(conn)
+		req, err := socks5.PerformHandshake(conn, []socks5.Authenticator{cator})
+
 		if err != nil {
-			logger.Error("Error in reading request from socks5 connection: ", err)
+			logger.Error("Error in socks5 handshake: ", err)
 			continue
 		}
 
@@ -126,18 +131,21 @@ func handleSocks(listener net.Listener) {
 //Listen create a listener and serve on it
 func listen(listenerType string) error {
 	//incomingChan := make(chan net.Conn)
-	controlListener, err := createControlListener(listenerType)
-	if err != nil {
-		return err
-	}
 
+	//------------ socks 5 server --------------
 	socksAddr := ":" + cfg.SocksPort
 	socksListener, err := createSocks5Listener(socksAddr)
 	if err != nil {
 		return err
 	}
+	defer socksListener.Close()
 	go handleSocks(socksListener)
 
+	//------------ tunneler server --------------
+	controlListener, err := createControlListener(listenerType)
+	if err != nil {
+		return err
+	}
 	defer controlListener.Close()
 	for {
 		conn, err := controlListener.Accept()
@@ -213,8 +221,8 @@ func main() {
 	//schedule(updatejson, 1000*time.Millisecond)
 	//schedule(func() { log.Println(clientjson) }, 2000*time.Millisecond)
 
-	go startHTTP(cfg.HTTPPort)
-	logger.Info("Started HTTP server at port ", cfg.HTTPPort)
+	// go startHTTP(cfg.HTTPPort)
+	// logger.Info("Started HTTP server at port ", cfg.HTTPPort)
 
 	// run main tcp server
 	listen(typ)

@@ -25,7 +25,7 @@
             "command": "go",
             "args": [
                 "build",
-                "./cln"
+                "./client"
             ],
             "group": {
                 "kind": "build",

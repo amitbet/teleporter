@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"crypto/tls"
@@ -12,24 +12,8 @@ import (
 	"github.com/pions/dtls/pkg/dtls"
 )
 
-func main() {
-	typ := "tls"
-	if len(os.Args) < 2 {
-		logger.Error("Invalid arguments.\n cln.exe <address:port> \nexample usage: cln.exe 127.0.0.1:8484")
-		os.Exit(0)
-	}
-	if len(os.Args) >= 3 {
-		typ = os.Args[2]
-		logger.Info("Using connection type: ", typ)
-	}
-
-	conf := &socks5.Config{}
-	server, err := socks5.New(conf)
-	if err != nil {
-		panic(err)
-	}
-
-	serverAddress := os.Args[1]
+// NewClientConnection creates a new client and opens multiple connections to the given server
+func NewClientConnection(serverAddress string, connType string) *MultiMux {
 
 	host, _ := os.Hostname()
 	config := common.ClientConfig{
@@ -43,13 +27,24 @@ func main() {
 		logger.Error("problem in client config json marshaling: ", err)
 	}
 
-	sess := NewMultiMuxClient()
+	sess := NewMultiMux(true)
 	for i := 0; i < 10; i++ {
-		conn1 := dialConnection(typ, serverAddress)
+		conn1 := dialConnection(connType, serverAddress)
 
 		// write the client ID & Configuration to the server
 		common.WriteString(conn1, string(jstr))
 		sess.AddConnection(conn1)
+	}
+	return sess
+}
+
+// HandleClientConnection runs the accept loop on the client side mux, serving any incoming requests
+func HandleClientConnection(sess *MultiMux) {
+
+	conf := &socks5.Config{}
+	server, err := socks5.New(conf)
+	if err != nil {
+		panic(err)
 	}
 
 	for {
@@ -63,6 +58,7 @@ func main() {
 	}
 }
 
+// dialConnection opens a single connection to the server
 func dialConnection(typ string, serverAddress string) net.Conn {
 
 	tlsconfig := &tls.Config{
