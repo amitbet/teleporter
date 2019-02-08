@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"encoding/json"
@@ -9,7 +9,6 @@ import (
 
 type config struct {
 	CnCPort       string
-	HTTPPort      string
 	SocksUsername string
 	SocksPort     string
 	SocksPass     string
