@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,11 +68,11 @@ func NewRouter() *Router {
 	//load & populate network configuration
 	host, _ := os.Hostname()
 	config := common.ClientConfig{
-		ClientId:       host,
-		NetworkExports: []string{"*"},
-		Mapping:        make(map[string]string),
+		ClientId: host,
+		// NetworkExports: []string{"*"},
+		Mapping: make(map[string]string),
 	}
-	config.Mapping[""] = ""
+	//config.Mapping[""] = ""
 	rtr.NetworkConfig = &config
 
 	return rtr
@@ -128,17 +129,35 @@ func GenerateSocks5Req(task *TaskInfo) *socks5.Request {
 }
 
 func (rtr *Router) getTargetTether(taskInf *TaskInfo) (*Tether, error) {
+	var tID string
 
-	// >>>> TODO Decide which tether by looking at net configurations:
-	tID := "MIGLAMITB1"
-	// >>>> Temporary: if this is the tID, return nil (local execution)
-	if rtr.NetworkConfig.ClientId == tID {
+	//search our network mapping for any explicit routes
+	for wildcardStr, targetID := range rtr.NetworkConfig.Mapping {
+		regStr := strings.Replace(wildcardStr, "*", ".*?", -1)
+		reg := regexp.MustCompile(regStr)
+		if reg.MatchString(taskInf.TargetAddress) {
+			tID = targetID
+			break
+		}
+	}
+
+	// for any targets that should be locally executed return nil (local execution)
+	if rtr.NetworkConfig.ClientId == tID || // we found our own name in the map
+		strings.ToLower(tID) == "local" || // we have an explicit local in the map
+		strings.ToLower(tID) == "localhost" ||
+		(tID == "" && taskInf.Local) { // we didn't find anythink explicit in the map but the client is a local-only socks5 listener
+		logger.Debug("Router.route: Executing locally for target: " + taskInf.TargetAddress + ":" + taskInf.TargetPort)
 		return nil, nil
 	}
 
+	logger.Debug("Router.route: Found route to: " + tID + " for target: " + taskInf.TargetAddress + ":" + taskInf.TargetPort)
+
+	//lookup the tether by its id:
 	rtr.mu.RLock()
 	teth, ok := rtr.tethers[tID]
 	rtr.mu.RUnlock()
+
+	//if not found - there is no route, send back an error..
 	if !ok {
 		errorStr := "thether not found in router.getTargetTether: " + tID
 		logger.Error(errorStr)
@@ -188,8 +207,8 @@ func (rtr *Router) taskRelay(task *TunnelTask, targ *Tether) error {
 	}
 
 	defer muxConn.Close()
-	//defer task.Conn.Close()
-	
+	defer task.Conn.Close()
+
 	//send all prebuffered content down the line
 	muxConn.Write(task.ReadPresend())
 
@@ -226,15 +245,12 @@ func proxy(dst io.Writer, src io.Reader, errCh chan error) {
 }
 
 // taskExec will run the task with the local server, performing the request inside the current network
+// it can have several modes of operation (socks5, vpn, htmlproxy), currently only socks5 is implemented.
 func (rtr *Router) taskExec(task *TunnelTask) {
-
-	//write no-auth authentication option:
-	//task.PrefixSend([]byte{5, 1, socks5.NoAuth})
-
 	rtr.executeAsSocks5(task)
 }
 
-// Connect creates a new bundle of phsical connections to the server
+// Connect creates a new bundle of physical connections to the server (AKA: thether)
 func (rtr *Router) Connect(serverAddress string, connType string) error {
 	teth, err := rtr.createMultiConn(serverAddress, connType, 10)
 	if err != nil {
@@ -431,6 +447,7 @@ func (rtr *Router) createControlListener(listenAddress string, listenerType stri
 }
 
 func (rtr *Router) executeAsSocks5(muxConn *TunnelTask) {
+	// read request from connection:
 	request, err := socks5.NewRequest(muxConn)
 	if err != nil {
 		logger.Error("Router.executeAsSocks5: Error: ", err)
@@ -603,7 +620,9 @@ func (rtr *Router) handleSocksListener(listener net.Listener) {
 			&TaskInfo{
 				Type:          TaskTypeSocks,
 				TargetPort:    destPort,
-				TargetAddress: destHost})
+				TargetAddress: destHost,
+				Local:         true,
+			})
 
 		rtr.route(task)
 	}

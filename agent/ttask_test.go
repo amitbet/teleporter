@@ -13,7 +13,9 @@ func TestTunnelTask(t *testing.T) {
 		&TaskInfo{
 			Type:          TaskTypeSocks,
 			TargetPort:    "8080",
-			TargetAddress: "localhost"})
+			TargetAddress: "localhost",
+			Local:         true,
+		})
 	task.PrefixTaskInfo()
 
 	task.PrefixSend([]byte("abcd"))

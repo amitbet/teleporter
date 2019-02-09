@@ -22,6 +22,7 @@ type TaskInfo struct {
 	Type          TaskType
 	TargetAddress string //final target address (intermediate steps decided by network configurations)
 	TargetPort    string
+	Local         bool // indicates whether or not the message passed over a relay
 }
 
 func writeTaskInfo(conn io.Writer, tInfo *TaskInfo) error {
@@ -52,6 +53,7 @@ func readTaskInfo(conn io.Reader) (*TaskInfo, error) {
 		logger.Error("Error unmarshaling taskInfo: %s\n", err)
 		return nil, err
 	}
+	cconfig.Local = false
 	return &cconfig, nil
 }
 
