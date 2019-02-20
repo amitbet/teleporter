@@ -1,38 +1,23 @@
 package logger
 
-import "fmt"
+import (
+	"fmt"
+	"path"
+	"runtime"
+	"strconv"
+	"time"
+)
 
 var simpleLogger = SimpleLogger{LogLevelDebug}
 
-func SetLogLevel(logLevel string) {
-	level := GetLogLevel(logLevel)
-	fmt.Println("Log level set to: ", logLevel)
-	simpleLogger = SimpleLogger{level}
-}
-
-func GetLogLevel(logLevel string) LogLevel {
-	switch logLevel {
-	case "trace":
-		return LogLevelTrace
-	case "debug":
-		return LogLevelDebug
-	case "info":
-		return LogLevelInfo
-	case "warn":
-		return LogLevelWarn
-	case "error":
-		return LogLevelError
-	case "fatal":
-		return LogLevelFatal
-	}
-	return LogLevelInfo
-}
-
 type Logger interface {
+	Trace(v ...interface{})
+	Tracef(format string, v ...interface{})
 	Debug(v ...interface{})
 	Debugf(format string, v ...interface{})
 	Info(v ...interface{})
 	Infof(format string, v ...interface{})
+	DebugfNoCR(format string, v ...interface{})
 	Warn(v ...interface{})
 	Warnf(format string, v ...interface{})
 	Error(v ...interface{})
@@ -55,9 +40,27 @@ type SimpleLogger struct {
 	level LogLevel
 }
 
+func (sl *SimpleLogger) GetPrefix(level string) string {
+	fpcs := make([]uintptr, 1)
+	n := runtime.Callers(4, fpcs)
+	caller := ""
+	if n != 0 {
+		caller1 := runtime.FuncForPC(fpcs[0] - 1)
+		_, caller2 := path.Split(caller1.Name())
+
+		file, lineNo := caller1.FileLine(fpcs[0] - 1)
+		if caller1 != nil {
+			_, fileName := path.Split(file)
+			caller = caller2 + " " + fileName + "(" + strconv.Itoa(lineNo) + ")"
+		}
+	}
+
+	return time.Now().Format("Jan 2 15:04:05.000") + " " + level + " " + caller + ":"
+}
+
 func (sl *SimpleLogger) Trace(v ...interface{}) {
 	if sl.level <= LogLevelTrace {
-		arr := []interface{}{"[Trace]"}
+		arr := []interface{}{sl.GetPrefix("[Trace]")}
 		for _, item := range v {
 			arr = append(arr, item)
 		}
@@ -67,13 +70,13 @@ func (sl *SimpleLogger) Trace(v ...interface{}) {
 }
 func (sl *SimpleLogger) Tracef(format string, v ...interface{}) {
 	if sl.level <= LogLevelTrace {
-		fmt.Printf("[Trace] "+format+"\n", v...)
+		fmt.Printf(sl.GetPrefix("[Trace]")+format+"\n", v...)
 	}
 }
 
 func (sl *SimpleLogger) Debug(v ...interface{}) {
 	if sl.level <= LogLevelDebug {
-		arr := []interface{}{"[Debug]"}
+		arr := []interface{}{sl.GetPrefix("[Debug]")}
 		for _, item := range v {
 			arr = append(arr, item)
 		}
@@ -83,26 +86,33 @@ func (sl *SimpleLogger) Debug(v ...interface{}) {
 }
 func (sl *SimpleLogger) Debugf(format string, v ...interface{}) {
 	if sl.level <= LogLevelDebug {
-		fmt.Printf("[Debug] "+format+"\n", v...)
+		fmt.Printf(sl.GetPrefix("[Debug]")+format+"\n", v...)
 	}
 }
 func (sl *SimpleLogger) Info(v ...interface{}) {
 	if sl.level <= LogLevelInfo {
-		arr := []interface{}{"[Info ]"}
+		arr := []interface{}{sl.GetPrefix("[Info ]")}
 		for _, item := range v {
 			arr = append(arr, item)
 		}
 		fmt.Println(arr...)
 	}
 }
-func (sl *SimpleLogger) Infof(format string, v ...interface{}) {
-	if sl.level <= LogLevelInfo {
-		fmt.Printf("[Info ] "+format+"\n", v...)
+func (sl *SimpleLogger) DebugfNoCR(format string, v ...interface{}) {
+	if sl.level <= LogLevelDebug {
+		fmt.Printf(sl.GetPrefix("[Info ]")+format, v...)
 	}
 }
+
+func (sl *SimpleLogger) Infof(format string, v ...interface{}) {
+	if sl.level <= LogLevelInfo {
+		fmt.Printf(sl.GetPrefix("[Info ]")+format+"\n", v...)
+	}
+}
+
 func (sl *SimpleLogger) Warn(v ...interface{}) {
 	if sl.level <= LogLevelWarn {
-		arr := []interface{}{"[Warn ]"}
+		arr := []interface{}{sl.GetPrefix("[Warn ]")}
 		for _, item := range v {
 			arr = append(arr, item)
 		}
@@ -111,26 +121,29 @@ func (sl *SimpleLogger) Warn(v ...interface{}) {
 }
 func (sl *SimpleLogger) Warnf(format string, v ...interface{}) {
 	if sl.level <= LogLevelWarn {
-		fmt.Printf("[Warn ] "+format+"\n", v...)
+		fmt.Printf(sl.GetPrefix("[Warn ]")+format+"\n", v...)
 	}
 }
+
 func (sl *SimpleLogger) Error(v ...interface{}) {
 	if sl.level <= LogLevelError {
-		arr := []interface{}{"[Error]"}
+		arr := []interface{}{sl.GetPrefix("[Error]")}
 		for _, item := range v {
 			arr = append(arr, item)
 		}
 		fmt.Println(arr...)
 	}
 }
+
 func (sl *SimpleLogger) Errorf(format string, v ...interface{}) {
 	if sl.level <= LogLevelError {
-		fmt.Printf("[Error] "+format+"\n", v...)
+		fmt.Printf(sl.GetPrefix("[Error]")+format+"\n", v...)
 	}
 }
+
 func (sl *SimpleLogger) Fatal(v ...interface{}) {
 	if sl.level <= LogLevelFatal {
-		arr := []interface{}{"[Fatal]"}
+		arr := []interface{}{sl.GetPrefix("[Fatal]")}
 		for _, item := range v {
 			arr = append(arr, item)
 		}
@@ -138,31 +151,39 @@ func (sl *SimpleLogger) Fatal(v ...interface{}) {
 
 	}
 }
+
 func (sl *SimpleLogger) Fatalf(format string, v ...interface{}) {
 	if sl.level <= LogLevelFatal {
-		fmt.Printf("[Fatal] "+format+"\n", v)
+		fmt.Printf(sl.GetPrefix("[Fatal]")+format+"\n", v)
 	}
-}
-
-func Debug(v ...interface{}) {
-	simpleLogger.Debug(v...)
-}
-func Debugf(format string, v ...interface{}) {
-	simpleLogger.Debugf(format, v...)
 }
 
 func Trace(v ...interface{}) {
 	simpleLogger.Trace(v...)
 }
+
 func Tracef(format string, v ...interface{}) {
 	simpleLogger.Tracef(format, v...)
+}
+
+func Debug(v ...interface{}) {
+	simpleLogger.Debug(v...)
+}
+
+func Debugf(format string, v ...interface{}) {
+	simpleLogger.Debugf(format, v...)
 }
 
 func Info(v ...interface{}) {
 	simpleLogger.Info(v...)
 }
+
 func Infof(format string, v ...interface{}) {
 	simpleLogger.Infof(format, v...)
+}
+
+func DebugfNoCR(format string, v ...interface{}) {
+	simpleLogger.DebugfNoCR(format, v...)
 }
 
 func Warn(v ...interface{}) {
@@ -175,6 +196,7 @@ func Warnf(format string, v ...interface{}) {
 func Error(v ...interface{}) {
 	simpleLogger.Error(v...)
 }
+
 func Errorf(format string, v ...interface{}) {
 	simpleLogger.Errorf(format, v...)
 }
@@ -182,6 +204,7 @@ func Errorf(format string, v ...interface{}) {
 func Fatal(v ...interface{}) {
 	simpleLogger.Fatal(v...)
 }
+
 func Fatalf(format string, v ...interface{}) {
 	simpleLogger.Fatalf(format, v...)
 }
