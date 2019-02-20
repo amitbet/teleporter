@@ -9,7 +9,7 @@
             "command": "go",
             "args": [
                 "build",
-                "./srv"
+                "./server"
             ],
             "group": {
                 "kind": "build",

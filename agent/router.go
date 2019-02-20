@@ -271,10 +271,13 @@ func (rtr *Router) Connect(serverAddress string, connType string) error {
 }
 
 // Serve creates a listener of given type and runs it on the given port
-func (rtr *Router) Serve(port string, serverType string) error {
+func (rtr *Router) Serve(port string, serverType string, localListener bool) error {
 	switch serverType {
 	case "socks5": // opens a socks 5 proxy port for browsers / native clients
 		socksAddr := ":" + port
+		if localListener {
+			socksAddr = "localhost" + socksAddr
+		}
 		socks5Listener, err := rtr.createSocks5Listener(socksAddr)
 		if err != nil {
 			logger.Error("problem with listening to port: ", port, err)

@@ -1,0 +1,30 @@
+{
+    "servers": [
+        {
+            "port": 10101,
+            "type": "Socks5",
+            "acceptLocalOnly": true
+        },
+        {
+            "port": 10102,
+            "type": "relay",
+            "acceptLocalOnly": false
+        }
+    ],
+    "tethers": [
+        {
+            "port": 10201,
+            "host": "\u003cRemoteHost Address Or IP\u003e",
+            "connectionType": "tls",
+            "connectionName": "\u003cSome name or description like: network Node #2, should have Id = HomeComputer\u003e",
+            "credentials": ""
+        }
+    ],
+    "netConf": {
+        "clientId": "MIGLAMITB",
+        "networkMapping": {
+            "*": "local"
+        }
+    },
+    "authenticateSocks5": false
+}

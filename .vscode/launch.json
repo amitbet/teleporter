@@ -5,20 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Client",
+            "name": "Launch Agent",
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${workspaceFolder}/cln/cln.go",
+            "program": "${workspaceFolder}/agent/cli/agent.go",
             "args": ["localhost:8484"]
 
-        },
-        {
-            "name": "Launch Server",
-            "type": "go",
-            "request": "launch",
-            "mode": "debug",
-            "program": "${workspaceFolder}/srv/srv.go"
         },
         {
             "name": "Launch",
