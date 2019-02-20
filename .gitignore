@@ -2,6 +2,9 @@
 *.o
 *.a
 *.so
+debug
+server.crt
+server.key
 
 # Folders
 _obj
