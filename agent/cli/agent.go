@@ -81,7 +81,7 @@ func main() {
 				},
 				common.ListenerConfig{
 					Port:      10102,
-					Type:      "relay",
+					Type:      "relayTcp",
 					LocalOnly: false,
 				},
 			},
@@ -109,12 +109,22 @@ func main() {
 
 	//facilitate all connections
 	for _, connConf := range cconf.Connections {
-		rtr.Connect(connConf.TargetHost+":"+strconv.Itoa(connConf.TargetPort), connConf.ConnectionType)
+		targetURI := connConf.TargetHost + ":" + strconv.Itoa(connConf.TargetPort)
+		err := rtr.Connect(targetURI, connConf.ConnectionType)
+		if err != nil {
+			logger.Error("Agent: failed to connect to "+targetURI+": ", err)
+		}
+		logger.Info("Agent connected with: "+connConf.ConnectionType+" to ", targetURI)
 	}
 
 	//run all server listerners:
 	for _, listenConf := range cconf.Servers {
-		rtr.Serve(strconv.Itoa(listenConf.Port), listenConf.Type, listenConf.LocalOnly)
+		err := rtr.Serve(strconv.Itoa(listenConf.Port), listenConf.Type, listenConf.LocalOnly)
+		if err != nil {
+			logger.Error("Agent: failed to run listener: ", err)
+			return
+		}
+		logger.Info("Agent: "+listenConf.Type+" listentning on port:", listenConf.Port)
 	}
 
 	// wait for ctrl+c to exit

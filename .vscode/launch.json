@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Launch Debug Routers",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/agent/debug/cli.go"
+        },
+        {
             "name": "Launch Agent",
             "type": "go",
             "request": "launch",

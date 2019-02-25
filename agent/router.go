@@ -274,6 +274,7 @@ func (rtr *Router) Connect(serverAddress string, connType string) error {
 func (rtr *Router) Serve(port string, serverType string, localListener bool) error {
 	switch serverType {
 	case "socks5": // opens a socks 5 proxy port for browsers / native clients
+		// an entry point to load traffic through
 		socksAddr := ":" + port
 		if localListener {
 			socksAddr = "localhost" + socksAddr
@@ -285,6 +286,7 @@ func (rtr *Router) Serve(port string, serverType string, localListener bool) err
 		}
 		go rtr.handleSocksListener(socks5Listener)
 	case "relayTcp": // opens a multi-mux tcp port, executes locally or realys messages to other connections
+		// tcp is a solid default to start from
 		listenAddr := ":" + port
 		controlListener, err := rtr.createControlListener(listenAddr, "tls")
 		if err != nil {
@@ -293,6 +295,7 @@ func (rtr *Router) Serve(port string, serverType string, localListener bool) err
 		}
 		go rtr.handleControlListener(controlListener)
 	case "relayUdp":
+		// udp is good for performance
 		listenAddr := ":" + port
 		controlListener1, err := rtr.createControlListener(listenAddr, "dtls")
 		if err != nil {
@@ -300,9 +303,11 @@ func (rtr *Router) Serve(port string, serverType string, localListener bool) err
 			return err
 		}
 		go rtr.handleControlListener(controlListener1)
-
 	case "relayWebSockets":
+		// ws is good for passing firewalls
 		return errors.New("Not implemented")
+	default:
+		return errors.New("Unknown server type: " + serverType)
 	}
 	return nil
 }
@@ -577,6 +582,51 @@ func (rtr *Router) createSocks5Listener(socksAddr string) (net.Listener, error) 
 	return socksListener, nil
 }
 
+func (rtr *Router) handleSocks5Connection(conn net.Conn) {
+	var cator socks5.Authenticator
+	// 5s to get the socks establishing over with
+	///conn.SetDeadline(time.Now().Add(5 * time.Second))
+	if rtr.AuthenticateSocks5 {
+		// connect & authenticate
+		cator = socks5.UserPassAuthenticator{
+			Credentials: socks5.StaticCredentials{
+				rtr.SocksUsername: rtr.SocksPass,
+			},
+		}
+	} else {
+		cator = socks5.NoAuthAuthenticator{}
+	}
+	req, err := socks5.PerformHandshake(conn, []socks5.Authenticator{cator})
+
+	if err != nil {
+		logger.Error("Error in socks5 handshake: ", err)
+		return
+	}
+
+	address := req.DestAddr.Address()
+
+	// u, err := url.Parse(address)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	destHost, destPort, _ := net.SplitHostPort(address)
+
+	// adding the request to this task, so it can be handled on the other side -----
+	buff := bytes.Buffer{}
+	req.WriteTo(&buff)
+
+	task := NewTunnelTask(
+		conn,
+		&TaskInfo{
+			Type:          TaskTypeSocks,
+			TargetPort:    destPort,
+			TargetAddress: destHost,
+			Local:         true,
+		})
+
+	rtr.route(task)
+}
+
 // handles an incomming socks connection
 func (rtr *Router) handleSocksListener(listener net.Listener) {
 	for {
@@ -586,47 +636,6 @@ func (rtr *Router) handleSocksListener(listener net.Listener) {
 			logger.Error("Closed tcp server: ", err)
 			continue
 		}
-		var cator socks5.Authenticator
-		// 5s to get the socks establishing over with
-		///conn.SetDeadline(time.Now().Add(5 * time.Second))
-		if rtr.AuthenticateSocks5 {
-			// connect & authenticate
-			cator = socks5.UserPassAuthenticator{
-				Credentials: socks5.StaticCredentials{
-					rtr.SocksUsername: rtr.SocksPass,
-				},
-			}
-		} else {
-			cator = socks5.NoAuthAuthenticator{}
-		}
-		req, err := socks5.PerformHandshake(conn, []socks5.Authenticator{cator})
-
-		if err != nil {
-			logger.Error("Error in socks5 handshake: ", err)
-			continue
-		}
-
-		address := req.DestAddr.Address()
-
-		// u, err := url.Parse(address)
-		// if err != nil {
-		// 	panic(err)
-		// }
-		destHost, destPort, _ := net.SplitHostPort(address)
-
-		// adding the request to this task, so it can be handled on the other side -----
-		buff := bytes.Buffer{}
-		req.WriteTo(&buff)
-
-		task := NewTunnelTask(
-			conn,
-			&TaskInfo{
-				Type:          TaskTypeSocks,
-				TargetPort:    destPort,
-				TargetAddress: destHost,
-				Local:         true,
-			})
-
-		rtr.route(task)
+		rtr.handleSocks5Connection(conn)
 	}
 }

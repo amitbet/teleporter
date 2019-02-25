@@ -45,6 +45,19 @@ func (m *MultiMux) AddConnection(c io.ReadWriteCloser) {
 }
 
 func (m *MultiMux) handleSession(sess muxado.Session) {
+	defer func() {
+		logger.Info("Physical connection ended, removing")
+		//remove at end of session
+		for i, cn := range m.connections {
+			if sess == cn {
+				m.connections = append(m.connections[:i], m.connections[i+1:]...)
+				break
+			}
+		}
+		//close session
+		sess.Close()
+	}()
+
 	for {
 		sconn, err := sess.Accept()
 		if err != nil {

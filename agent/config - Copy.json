@@ -1,0 +1,17 @@
+{
+	"CnCPort": "8484",
+	"SocksPort": "8485",
+	"SocksPass": "e-KpVfp_?H$D5R!6Eg5%aW<r9n9X%wb",
+	"SocksUsername": "rvprx",
+	"Serve": {
+		"TLS": 8484,
+		"Socks5": 8485
+	},
+	"ConnectTo": {
+		"127.0.0.1:8484": "cloudBase"
+	},
+	"Expose": {
+		"dropbox.com": "cloudBase",
+		"webmail.medcon.com": "cloudBase"
+	}
+}
