@@ -636,6 +636,6 @@ func (rtr *Router) handleSocksListener(listener net.Listener) {
 			logger.Error("Closed tcp server: ", err)
 			continue
 		}
-		rtr.handleSocks5Connection(conn)
+		go rtr.handleSocks5Connection(conn)
 	}
 }
