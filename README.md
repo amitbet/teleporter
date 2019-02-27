@@ -21,8 +21,16 @@ it is a simple, one binary super-server that breakes through network bounderies
 ## Potential Uses:
 * Stay connected to home equipment without port mapping
 * Seamlessly RDP/VNC into computers on multiple firewalled networks to provide remote support
-* Expose on-premise webservers to potential customers or cloud testing solutions
+* Expose on-premise webservers to potential customers or cloud testing farms
+* Create secure agent connections from customer sites to cloud services
 * Bridge network gaps without help from your IT department
 * Stay connected to work without VPN
 * Use as a custom VPN to spoof your origin, protect your privacy and gain access to location based services
 
+## TODO:
+* KeepAlive messages for TCP / WS
+* WebSocket support
+* Http proxy support for outgoing WebSocket connections
+* Authentication between nodes (clientId/Secret generation and storage)
+* DTLS realy (secure udp) support
+* Reconnect closed connections
