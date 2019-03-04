@@ -5,7 +5,8 @@
 debug
 server.crt
 server.key
-
+coverage/
+.nyc_output/
 # Folders
 _obj
 _test

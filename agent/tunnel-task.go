@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 
-	"github.com/amitbet/teleporter/common"
 	"github.com/amitbet/teleporter/logger"
 )
 
@@ -14,8 +13,9 @@ type TaskType uint8
 
 const (
 	TaskTypeSocks = iota
-	TaskTypeUpdateConfig
-	TaskTypeVpn
+	//TaskTypeUpdateConfig
+	//TaskTypeVpn
+	TaskTypePing
 )
 
 type TaskInfo struct {
@@ -31,7 +31,7 @@ func writeTaskInfo(conn io.Writer, tInfo *TaskInfo) error {
 		logger.Error("writeTaskHeader: Problem in TaskInfo json marshaling: ", err)
 		return err
 	}
-	err = common.WriteString(conn, string(jstr))
+	err = WriteString(conn, string(jstr))
 	if err != nil {
 		logger.Error("writeTaskHeader: Problem in writing TaskInfo: ", err)
 		return err
@@ -40,7 +40,7 @@ func writeTaskInfo(conn io.Writer, tInfo *TaskInfo) error {
 }
 
 func readTaskInfo(conn io.Reader) (*TaskInfo, error) {
-	taskInfoStr, err := common.ReadString(conn)
+	taskInfoStr, err := ReadString(conn)
 	if err != nil {
 		logger.Error("Client connect, failed while reading client header: %s\n", err)
 		return nil, err

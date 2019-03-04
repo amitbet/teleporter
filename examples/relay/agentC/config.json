@@ -1,0 +1,20 @@
+{
+    "servers": [
+    ],
+	"tethers": [
+        {
+            "port": 10201,
+            "host": "127.0.0.1",
+            "connectionType": "tls",
+            "connectionName": "conn to hub",
+            "credentials": ""
+        }
+    ],
+    "netConf": {
+        "clientId": "node2",
+        "networkMapping": {
+            "*google*": "local"
+        }
+    },
+    "authenticateSocks5": true
+}

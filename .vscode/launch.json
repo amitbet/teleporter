@@ -16,9 +16,8 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${workspaceFolder}/agent/cli/agent.go",
-            "args": ["localhost:8484"]
-
+            "program": "${workspaceFolder}/agent/cli/main.go",
+            "args": ["d:\\lab\\teleporter-test\\agentA\\config.json"]
         },
         {
             "name": "Launch",

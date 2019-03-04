@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -15,8 +16,8 @@ import (
 	"sync"
 
 	"github.com/amitbet/go-socks5"
-	"github.com/amitbet/teleporter/common"
 	"github.com/amitbet/teleporter/logger"
+	proxy_dialer "github.com/mwitkow/go-http-dialer"
 	"github.com/pions/dtls/pkg/dtls"
 )
 
@@ -31,13 +32,13 @@ type IMux interface {
 // along with any additional information about the remote part of the call
 type Tether struct {
 	IMux
-	RemoteConfig *common.ClientConfig
+	RemoteConfig *ClientConfig
 }
 
 // NewTether creates a tether which is a generalized network connection for tunneling
 func NewTether(isClient bool) *Tether {
 	t := Tether{}
-	t.IMux = common.NewMultiMux(isClient)
+	t.IMux = NewMultiMux(isClient)
 	return &t
 }
 
@@ -48,9 +49,10 @@ type Router struct {
 	SocksUsername      string
 	SocksPass          string
 	tethers            map[string]*Tether
-	NetworkConfig      *common.ClientConfig
+	NetworkConfig      *ClientConfig
 	mu                 sync.RWMutex
 	AuthenticateSocks5 bool
+	Proxy              *ProxyInfo
 }
 
 func NewRouter() *Router {
@@ -67,7 +69,7 @@ func NewRouter() *Router {
 
 	//load & populate network configuration
 	host, _ := os.Hostname()
-	config := common.ClientConfig{
+	config := ClientConfig{
 		ClientId: host,
 		// NetworkExports: []string{"*"},
 		Mapping: make(map[string]string),
@@ -145,7 +147,7 @@ func (rtr *Router) getTargetTether(taskInf *TaskInfo) (*Tether, error) {
 	if rtr.NetworkConfig.ClientId == tID || // we found our own name in the map
 		strings.ToLower(tID) == "local" || // we have an explicit local in the map
 		strings.ToLower(tID) == "localhost" ||
-		(tID == "" && taskInf.Local) { // we didn't find anythink explicit in the map but the client is a local-only socks5 listener
+		(tID == "" && taskInf.Local) { // we didn't find anything explicit in the map but the client is a local-only socks5 listener
 		logger.Debug("Router.route: Executing locally for target: " + taskInf.TargetAddress + ":" + taskInf.TargetPort)
 		return nil, nil
 	}
@@ -170,6 +172,10 @@ func (rtr *Router) getTargetTether(taskInf *TaskInfo) (*Tether, error) {
 // it then either relays the task to another node, piping the connections together,
 // or executes the task in the local network
 func (rtr *Router) route(task *TunnelTask) {
+	// if task.Header.Type == TaskTypePing {
+	// 	task.Conn.Write([]byte("Pong"))
+	// 	return
+	// }
 
 	teth, err := rtr.getTargetTether(task.Header)
 	if err != nil {
@@ -187,14 +193,14 @@ func (rtr *Router) route(task *TunnelTask) {
 		//b := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		//task.Read(b)
 		//logger.Fatal(b)
-		go rtr.taskExec(task)
+		rtr.taskExec(task)
 	} else {
 		// ----- relay the task to the next node:
 		logger.Info("chosen route:", teth.RemoteConfig.ClientId)
 
 		//add the task info to the stream for the other side to route.
 		task.PrefixTaskInfo()
-		go rtr.taskRelay(task, teth)
+		rtr.taskRelay(task, teth)
 	}
 }
 
@@ -251,8 +257,8 @@ func (rtr *Router) taskExec(task *TunnelTask) {
 }
 
 // Connect creates a new bundle of physical connections to the server (AKA: thether)
-func (rtr *Router) Connect(serverAddress string, connType string) error {
-	teth, err := rtr.createMultiConn(serverAddress, connType, 10)
+func (rtr *Router) Connect(serverAddress string, connType string, proxy *ProxyInfo) error {
+	teth, err := rtr.createMultiConn(serverAddress, connType, 10, proxy)
 	if err != nil {
 		logger.Error("Connect: problem while connecting the tether to server:", serverAddress, err)
 		return err
@@ -288,7 +294,7 @@ func (rtr *Router) Serve(port string, serverType string, localListener bool) err
 	case "relayTcp": // opens a multi-mux tcp port, executes locally or realys messages to other connections
 		// tcp is a solid default to start from
 		listenAddr := ":" + port
-		controlListener, err := rtr.createControlListener(listenAddr, "tls")
+		controlListener, err := createTlsControlListener(listenAddr)
 		if err != nil {
 			logger.Error("problem with listening to port: ", port, err)
 			return err
@@ -297,7 +303,7 @@ func (rtr *Router) Serve(port string, serverType string, localListener bool) err
 	case "relayUdp":
 		// udp is good for performance
 		listenAddr := ":" + port
-		controlListener1, err := rtr.createControlListener(listenAddr, "dtls")
+		controlListener1, err := createDtlsControlListener(listenAddr)
 		if err != nil {
 			logger.Error("problem with listening to port: ", port, err)
 			return err
@@ -324,15 +330,15 @@ func (rtr *Router) handleControlListener(controlListener net.Listener) {
 	}
 }
 
-func readNetConfig(conn net.Conn) (*common.ClientConfig, error) {
-	clientConfigStr, err := common.ReadString(conn)
+func readNetConfig(conn net.Conn) (*ClientConfig, error) {
+	clientConfigStr, err := ReadString(conn)
 	if err != nil {
 		logger.Error("Client connect, failed while reading client header: %s\n", err)
 		return nil, err
 	}
 
 	logger.Debug("client connected, read client config string: ", clientConfigStr)
-	cconfig := common.ClientConfig{}
+	cconfig := ClientConfig{}
 	err = json.Unmarshal([]byte(clientConfigStr), &cconfig)
 	if err != nil {
 		logger.Error("Client connect, error unmarshaling clientConfig: %s\n", err)
@@ -341,13 +347,13 @@ func readNetConfig(conn net.Conn) (*common.ClientConfig, error) {
 	return &cconfig, nil
 }
 
-func writeNetConfig(conn net.Conn, config *common.ClientConfig) error {
+func writeNetConfig(conn net.Conn, config *ClientConfig) error {
 	jstr, err := json.Marshal(config)
 	if err != nil {
 		logger.Error("writeNetConfig: problem in netConfig json marshaling: ", err)
 		return err
 	}
-	err = common.WriteString(conn, string(jstr))
+	err = WriteString(conn, string(jstr))
 	if err != nil {
 		logger.Error("writeNetConfig: Problem in sending network config: ", err)
 		return err
@@ -386,6 +392,8 @@ func (rtr *Router) handlePhysicalClientConn(conn net.Conn) {
 	rtr.mu.RUnlock()
 
 	//TODO: go over goroutines, and inspect creation and deletion
+
+	// if this is a first connection to some node in the netowrk, create a new tether to represent it
 	if !ok {
 		//create new Client
 		teth = NewTether(false)
@@ -400,18 +408,15 @@ func (rtr *Router) handlePhysicalClientConn(conn net.Conn) {
 		teth.AddConnection(conn)
 		go rtr.handleIncomingConnections(teth)
 	} else {
+		// a known node, add an additional connection to an existing tether
 		teth.AddConnection(conn)
 		teth.RemoteConfig = cconfig
 	}
 
-	// blocks until the muxado connnection is closed
-	// session.Wait()
-
-	// delete client
-	//delete(clients, session)
 }
 
-func (rtr *Router) createControlListener(listenAddress string, listenerType string) (net.Listener, error) {
+// createTlsControlListener creates a listener of type: tcpRelay (with encryption = tls)
+func createTlsControlListener(listenAddress string) (net.Listener, error) {
 	var controlListener net.Listener
 	var err error
 
@@ -421,36 +426,41 @@ func (rtr *Router) createControlListener(listenAddress string, listenerType stri
 	}
 	tlsconfig := &tls.Config{Certificates: []tls.Certificate{cer}}
 
-	switch listenerType {
-	case "tls":
-		controlListener, err = tls.Listen("tcp", listenAddress, tlsconfig)
+	controlListener, err = tls.Listen("tcp", listenAddress, tlsconfig)
 
-		if err != nil {
-			return nil, err
-		}
-
-		logger.Debug("createControlListener: Started server at " + listenAddress)
-	case "dtls":
-		logger.Debug("createControlListener: running on dtls")
-		addr, err := net.ResolveUDPAddr("udp", listenAddress)
-		if err != nil {
-			return nil, err
-		}
-
-		certificate, privateKey, err := dtls.GenerateSelfSigned()
-		if err != nil {
-			return nil, err
-		}
-		// Prepare the configuration of the DTLS connection
-		config := &dtls.Config{Certificate: certificate, PrivateKey: privateKey}
-
-		// Connect to a DTLS server
-		controlListener, err = dtls.Listen("udp", addr, config)
-
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
 	}
+
+	logger.Debug("createControlListener: Started server at " + listenAddress)
+	return controlListener, nil
+}
+
+// createDtlsControlListener creates a listener of type: udpRelay (with encryption = dtls)
+func createDtlsControlListener(listenAddress string) (net.Listener, error) {
+	var controlListener net.Listener
+	var err error
+
+	logger.Debug("createControlListener: running on dtls")
+	addr, err := net.ResolveUDPAddr("udp", listenAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	certificate, privateKey, err := dtls.GenerateSelfSigned()
+	if err != nil {
+		return nil, err
+	}
+	// Prepare the configuration of the DTLS connection
+	config := &dtls.Config{Certificate: certificate, PrivateKey: privateKey}
+
+	// Connect to a DTLS server
+	controlListener, err = dtls.Listen("udp", addr, config)
+
+	if err != nil {
+		return nil, err
+	}
+	logger.Debug("createControlListener: Started server at " + listenAddress)
 	return controlListener, nil
 }
 
@@ -478,8 +488,28 @@ func (rtr *Router) executeAsSocks5(muxConn *TunnelTask) {
 	//io.ReadAtLeast(muxConn.Conn, reply, 2)
 }
 
+// runPingLoop periodically pings the other side
+// and listen for the reply, which should be recieved within a certain time period
+// func runPingLoop(intervalSecs, timeoutSecs int, conn net.Conn) error {
+// 	err := writeTaskInfo(conn, &TaskInfo{
+// 		Type:          TaskTypePing,
+// 		TargetPort:    "",
+// 		TargetAddress: "",
+// 		Local:         false,
+// 	})
+// 	if err != nil {
+// 		logger.Error("error while sending ping header: ", err)
+// 		return err
+// 	}
+// 	pong := []byte{0, 0, 0, 0}
+// 	conn.SetDeadline(time.Now().Add(time.Duration(timeoutSecs) * time.Second))
+// 	_, err = conn.Read(pong)
+// 	conn.SetDeadline(nil)
+// 	return nil
+// }
+
 // createMultiConn opens multiple connections to the given server
-func (rtr *Router) createMultiConn(serverAddress string, connType string, connCountInBundle int) (*Tether, error) {
+func (rtr *Router) createMultiConn(serverAddress string, connType string, connCountInBundle int, proxyInfo *ProxyInfo) (*Tether, error) {
 
 	jstr, err := json.Marshal(rtr.NetworkConfig)
 	if err != nil {
@@ -488,7 +518,7 @@ func (rtr *Router) createMultiConn(serverAddress string, connType string, connCo
 
 	th := NewTether(true)
 	for i := 0; i < connCountInBundle; i++ {
-		conn1 := dialConnection(connType, serverAddress)
+		conn1 := dialConnection(connType, serverAddress, proxyInfo)
 
 		// read ID & config from the client
 		cconfig, err := readNetConfig(conn1)
@@ -499,7 +529,7 @@ func (rtr *Router) createMultiConn(serverAddress string, connType string, connCo
 		th.RemoteConfig = cconfig
 
 		// write the client ID & Configuration to the server
-		err = common.WriteString(conn1, string(jstr))
+		err = WriteString(conn1, string(jstr))
 		if err != nil {
 			logger.Error("createMultiConn: problem in sending server's network config: ", err)
 			return nil, err
@@ -510,7 +540,7 @@ func (rtr *Router) createMultiConn(serverAddress string, connType string, connCo
 	return th, nil
 }
 
-// HandleClientConnection runs the accept loop on the client side multi-mux (connection bundle),
+// HandleClientConnection runs the accept loop on the client side multi-mux (tether),
 // serving any incoming requests
 func (rtr *Router) handleIncomingConnections(sess *Tether) {
 
@@ -526,13 +556,13 @@ func (rtr *Router) handleIncomingConnections(sess *Tether) {
 			logger.Error("failed to read task from connection", err)
 			break
 		}
-		//TODO: get real address here!!
-		rtr.route(task)
+
+		go rtr.route(task)
 	}
 }
 
 // dialConnection opens a single connection to the server
-func dialConnection(typ string, serverAddress string) net.Conn {
+func dialConnection(typ string, serverAddress string, proxy *ProxyInfo) net.Conn {
 
 	tlsconfig := &tls.Config{
 		InsecureSkipVerify: true,
@@ -541,7 +571,34 @@ func dialConnection(typ string, serverAddress string) net.Conn {
 	var err error
 	var conn net.Conn
 	if typ == "tls" {
-		conn, err = tls.Dial("tcp", serverAddress, tlsconfig)
+
+		if proxy != nil {
+			u, err := url.Parse(proxy.Address)
+			if err != nil {
+				logger.Error("failed parsing httpProxyListener into URL", err)
+			}
+
+			proxyDialer := proxy_dialer.New(u, proxy_dialer.WithTls(tlsconfig))
+			if proxy.User != "" || proxy.Pass != "" {
+				prxAuth := proxy_dialer.WithProxyAuth(proxy_dialer.AuthBasic(proxy.User, proxy.Pass))
+				prxAuth(proxyDialer)
+			}
+
+			rawConn, err := proxyDialer.Dial("tcp", serverAddress)
+			if err != nil {
+				logger.Error("Cannot connect to target: ", err)
+				os.Exit(0)
+			}
+			conn = tls.Client(rawConn, tlsconfig)
+
+			if err != nil {
+				logger.Error("Cannot estabilsh tls: ", err)
+				os.Exit(0)
+			}
+		} else {
+			conn, err = tls.Dial("tcp", serverAddress, tlsconfig)
+		}
+
 		if err != nil {
 			logger.Error("Cannot connect to target: ", err)
 			os.Exit(0)
@@ -553,6 +610,13 @@ func dialConnection(typ string, serverAddress string) net.Conn {
 			logger.Error("Cannot resolve address: ", serverAddress, err)
 			os.Exit(0)
 		}
+
+		// client := &http.Client{
+		// 	Transport: &http.Transport{
+		// 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		// 		Proxy:           http.ProxyURL("proxyUrl"),
+		// 	},
+		// }
 
 		//addr := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 4444}
 

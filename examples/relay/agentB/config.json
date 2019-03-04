@@ -1,0 +1,19 @@
+{
+    "servers": [
+        {
+            "port": 10201,
+            "type": "relayTcp",
+            "acceptLocalOnly": false
+        }
+    ],
+    "tethers": [
+    ],
+    "netConf": {
+        "clientId": "hub",
+        "networkMapping": {
+            "*google*": "hub",
+			"*":"local"
+        }
+    },
+    "authenticateSocks5": true
+}
