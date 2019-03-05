@@ -34,6 +34,14 @@ it is a simple, one binary super-server that breakes through network bounderies
 * Use as a custom VPN to spoof your origin, protect your privacy and gain access to location based services
 * Expose on-premise webservers to potential customers or cloud testing farms through socks5 +auth
 
+## Usage:
+1. go get github.com/amitbet/teleporter
+1. cd agent/cli
+1. go build .
+1. cd ../../examples
+1. use "run.bat" in any of the example directories
+1. deploy on your favorite machines & configure to construct your own custom slice of internet!
+ 
 ## TODO:
 * KeepAlive messages for TLS connections
 * Authentication between nodes (clientId/Secret generation and storage)
