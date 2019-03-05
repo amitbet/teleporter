@@ -6,15 +6,18 @@ it is a simple, one binary super-server that breakes through network bounderies
 
 ## Features:
 * Onboards traffic through a Socks5 server (+ VPN support in the future) which can be configured on a browser or on the whole OS
-* Creates strong bi-directional connections to other teleporter instances that can traverse network firewalls
-* Routes traffic between such teleporter nodes by following simple wildecard rules in the JSON config file
-* Works on any port
+* Creates strong bi-directional connections (tethers) to other teleporter instances that can traverse network firewalls
+* Combats "head of line" problems by having multiple connections in each tether
+* Routes traffic between teleporter nodes by following simple wildecard rules in the config file
 * Selectively exposes specific IPs or Domain names in the network to connected teleport nodes
-* Support for multipls transport protocols (**currently only TLS**, future work: dtls/udp, websocket?)
+* Support for multipls transport protocols (**currently only TLS**, future work: dtls/udp)
 * Can be chained to create a multi-hop network, or any other network formation you desire.
 * A powerfull multiplexor engine, allows all traffic to be sent over a finite number of connections (Thanks to Alan Shreve's muxado project)
-* No slowdown for traffic that enters & exist locally (local socks5 connections), 
+* No slowdown for traffic that enters & exist locally (local socks5 connections)
+* Works on any port
 * No software lags for relays, only mandatory network lags
+* Http proxy support for outgoing tls connections (using "CONNECT" like any normal https conn)
+* Support for Http proxy authentication
 
 ## Security:
 * Inter-node connections (tethers) are TLS encrypted 
@@ -24,17 +27,17 @@ it is a simple, one binary super-server that breakes through network bounderies
 
 ## Potential Uses:
 * Stay connected to home equipment without port mapping
-* Seamlessly RDP/VNC into computers on multiple firewalled networks to provide remote support
-* Expose on-premise webservers to potential customers or cloud testing farms
+* Seamlessly RDP/VNC into multiple networks for remote support
 * Create secure agent connections from customer sites to cloud services
 * Bridge network gaps without help from your IT department
-* Stay connected to work without VPN
+* Stay connected to work without using a VPN
 * Use as a custom VPN to spoof your origin, protect your privacy and gain access to location based services
+* Expose on-premise webservers to potential customers or cloud testing farms through socks5 +auth
 
 ## TODO:
-* KeepAlive messages for TCP
-* Http proxy "CONNECT" support for outgoing tls connections
+* KeepAlive messages for TLS connections
 * Authentication between nodes (clientId/Secret generation and storage)
+* Add VPN support
 * DTLS realy (secure udp) support
 * Reconnect closed connections
 * implement High Availability by connecting multiple times through a LB util enough connections report containing a link to the requested target host.
