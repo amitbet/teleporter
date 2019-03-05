@@ -20,6 +20,7 @@ type AgentConfig struct {
 	NetworkConfiguration ClientConfig     `json:"netConf"`
 	AuthenticateSocks5   bool             `json:"authenticateSocks5"`
 	Proxy                *ProxyInfo       `json:"proxy"`
+	NumConnsPerTether    int              `json:"numConnsPerTether"`
 }
 type ClientConfig struct {
 	ClientId string            `json:"clientId"`

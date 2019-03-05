@@ -121,7 +121,7 @@ func main() {
 		if proxy == nil {
 			proxy = cconf.Proxy
 		}
-		err := rtr.Connect(targetURI, connConf.ConnectionType, proxy)
+		err := rtr.Connect(targetURI, connConf.ConnectionType, proxy, cconf.NumConnsPerTether)
 		if err != nil {
 			logger.Error("Agent: failed to connect to "+targetURI+": ", err)
 		}

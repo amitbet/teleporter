@@ -257,8 +257,13 @@ func (rtr *Router) taskExec(task *TunnelTask) {
 }
 
 // Connect creates a new bundle of physical connections to the server (AKA: thether)
-func (rtr *Router) Connect(serverAddress string, connType string, proxy *ProxyInfo) error {
-	teth, err := rtr.createMultiConn(serverAddress, connType, 10, proxy)
+func (rtr *Router) Connect(serverAddress string, connType string, proxy *ProxyInfo, numConnsPerTether int) error {
+
+	if numConnsPerTether <= 0 {
+		numConnsPerTether = 10
+	}
+
+	teth, err := rtr.createMultiConn(serverAddress, connType, numConnsPerTether, proxy)
 	if err != nil {
 		logger.Error("Connect: problem while connecting the tether to server:", serverAddress, err)
 		return err
