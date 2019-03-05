@@ -39,8 +39,9 @@ it is a simple, one binary super-server that breakes through network bounderies
 1. cd agent/cli
 1. go build .
 1. cd ../../examples
-1. use "run.bat" in any of the example directories
-1. deploy on your favorite machines & configure to construct your own custom slice of internet!
+1. Use "run.bat" in any of the example directories
+1. Configure your browser to use the socks5 proxy now running on localhost:10101
+1. Deploy on your favorite machines & configure to construct your own custom slice of internet!
  
 ## TODO:
 * KeepAlive messages for TLS connections
