@@ -1,0 +1,29 @@
+{
+	"proxy":{
+		"address": "localhost:8080"
+	},
+    "servers": [
+        {
+            "port": 10101,
+            "type": "socks5",
+            "acceptLocalOnly": true
+        }
+    ],
+    "tethers": [
+        {
+            "port": 10201,
+            "host": "127.0.0.1",
+            "connectionType": "tls",
+            "connectionName": "miglamitb2",
+            "credentials": ""
+        }
+    ],
+    "netConf": {
+        "clientId": "MIGLAMITB",
+        "networkMapping": {
+            "*google*": "MIGLAMITB2",
+			 "*": "local"
+        }
+    },
+    "authenticateSocks5": false
+}

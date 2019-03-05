@@ -9,10 +9,9 @@
     "tethers": [
     ],
     "netConf": {
-        "clientId": "hub",
+        "clientId": "MIGLAMITB2",
         "networkMapping": {
-            "*google*": "hub",
-			"*":"local"
+            "*": "local"
         }
     },
     "authenticateSocks5": true
