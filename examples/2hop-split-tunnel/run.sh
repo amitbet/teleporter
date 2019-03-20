@@ -1,3 +1,3 @@
-../../agent/cli/cli.exe configB.json &
+../../agent/cli/cli configB.json &
 sleep 1
-../../agent/cli/cli.exe configA.json &
+../../agent/cli/cli configA.json &
