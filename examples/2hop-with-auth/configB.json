@@ -1,0 +1,23 @@
+{
+    "servers": [
+        {
+            "port": 10201,
+            "type": "relayTcp",
+            "acceptLocalOnly": false,
+            "useAuthentication": true,
+            "authClients": {
+                "node1": "mb8biM0HNINw6ceIsT5KFKLMPZTrTsr0eC-UCu8Vej4="
+            }
+        }
+    ],
+    "tethers": [
+    ],
+    "netConf": {
+        "clientId": "node2",
+        "networkMapping": {
+            "*": "local"
+        }
+    },
+    "proxy": null,
+    "numConnsPerTether": 10
+}

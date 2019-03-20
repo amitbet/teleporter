@@ -1,0 +1,32 @@
+{
+    "servers": [
+        {
+            "port": 10101,
+            "type": "socks5",
+            "acceptLocalOnly": true,
+            "useAuthentication": true,
+            "authClients": {
+                "socks5User": "v4wE1rwsWfiUQmJZBOvI5rjs_Dhbb08PaOb8MYbBV0A="
+            }
+        }
+    ],
+    "tethers": [
+        {
+            "port": 10201,
+            "host": "127.0.0.1",
+            "connectionType": "tls",
+            "connectionName": "Connection to node2",
+            "proxy": null,
+            "password": "mb8biM0HNINw6ceIsT5KFKLMPZTrTsr0eC-UCu8Vej4="
+        }
+    ],
+    "netConf": {
+        "clientId": "node1",
+        "networkMapping": {
+            "*google*": "node2",
+			 "*": "local"
+        }
+    },
+    "proxy": null,
+    "numConnsPerTether": 10
+}
