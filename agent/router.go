@@ -18,7 +18,7 @@ import (
 	"github.com/amitbet/go-socks5"
 	"github.com/amitbet/teleporter/logger"
 	proxy_dialer "github.com/mwitkow/go-http-dialer"
-	"github.com/pions/dtls/pkg/dtls"
+	"github.com/pions/dtls"
 )
 
 type IMux interface {
@@ -46,8 +46,7 @@ func NewTether(isClient bool) *Tether {
 // it recieves network connections and routes them to the correct destination
 type Router struct {
 	socks5server       *socks5.Server
-	SocksUsername      string
-	SocksPass          string
+	socks5Credentials  socks5.StaticCredentials
 	tethers            map[string]*Tether
 	NetworkConfig      *ClientConfig
 	mu                 sync.RWMutex
@@ -257,13 +256,14 @@ func (rtr *Router) taskExec(task *TunnelTask) {
 }
 
 // Connect creates a new bundle of physical connections to the server (AKA: thether)
-func (rtr *Router) Connect(serverAddress string, connType string, proxy *ProxyInfo, numConnsPerTether int) error {
-
+func (rtr *Router) Connect(connConf *TetherConfig, numConnsPerTether int) error {
+	proxy := connConf.Proxy
+	serverAddress := connConf.TargetHost + ":" + strconv.Itoa(connConf.TargetPort)
 	if numConnsPerTether <= 0 {
 		numConnsPerTether = 10
 	}
 
-	teth, err := rtr.createMultiConn(serverAddress, connType, numConnsPerTether, proxy)
+	teth, err := rtr.createMultiConn(serverAddress, connConf, numConnsPerTether, proxy)
 	if err != nil {
 		logger.Error("Connect: problem while connecting the tether to server:", serverAddress, err)
 		return err
@@ -282,14 +282,19 @@ func (rtr *Router) Connect(serverAddress string, connType string, proxy *ProxyIn
 }
 
 // Serve creates a listener of given type and runs it on the given port
-func (rtr *Router) Serve(port string, serverType string, localListener bool) error {
-	switch serverType {
+func (rtr *Router) Serve(serverConf ListenerConfig) error {
+	port := strconv.Itoa(serverConf.Port)
+	switch serverConf.Type {
 	case "socks5": // opens a socks 5 proxy port for browsers / native clients
-		// an entry point to load traffic through
+		// an entry point for incoming traffic
 		socksAddr := ":" + port
-		if localListener {
+		if serverConf.LocalOnly {
 			socksAddr = "localhost" + socksAddr
 		}
+		creds := serverConf.AuthorizedClients
+	
+		rtr.AuthenticateSocks5 = serverConf.UseAuthentication
+		rtr.socks5Credentials = creds
 		socks5Listener, err := rtr.createSocks5Listener(socksAddr)
 		if err != nil {
 			logger.Error("problem with listening to port: ", port, err)
@@ -304,7 +309,7 @@ func (rtr *Router) Serve(port string, serverType string, localListener bool) err
 			logger.Error("problem with listening to port: ", port, err)
 			return err
 		}
-		go rtr.handleControlListener(controlListener)
+		go rtr.handleControlListener(controlListener, &serverConf)
 	case "relayUdp":
 		// udp is good for performance
 		listenAddr := ":" + port
@@ -313,17 +318,17 @@ func (rtr *Router) Serve(port string, serverType string, localListener bool) err
 			logger.Error("problem with listening to port: ", port, err)
 			return err
 		}
-		go rtr.handleControlListener(controlListener1)
+		go rtr.handleControlListener(controlListener1, &serverConf)
 	case "relayWebSockets":
 		// ws is good for passing firewalls
 		return errors.New("Not implemented")
 	default:
-		return errors.New("Unknown server type: " + serverType)
+		return errors.New("Unknown server type: " + serverConf.Type)
 	}
 	return nil
 }
 
-func (rtr *Router) handleControlListener(controlListener net.Listener) {
+func (rtr *Router) handleControlListener(controlListener net.Listener, serverConf *ListenerConfig) {
 	defer controlListener.Close()
 	for {
 		conn, err := controlListener.Accept()
@@ -331,7 +336,7 @@ func (rtr *Router) handleControlListener(controlListener net.Listener) {
 			logger.Error("TCP accept failed: %s\n", err)
 			continue
 		}
-		go rtr.handlePhysicalClientConn(conn)
+		go rtr.handlePhysicalClientConn(conn, serverConf)
 	}
 }
 
@@ -368,7 +373,7 @@ func writeNetConfig(conn net.Conn, config *ClientConfig) error {
 
 // handlePhysicalClientConn manages a new physical (non-mux) client connection comming into the control port
 // it reads the client configuration, answers with our node's config, and adds the connection to the correct multi-mux conn pool
-func (rtr *Router) handlePhysicalClientConn(conn net.Conn) {
+func (rtr *Router) handlePhysicalClientConn(conn net.Conn, serverConf *ListenerConfig) {
 
 	err := writeNetConfig(conn, rtr.NetworkConfig)
 	if err != nil {
@@ -386,6 +391,13 @@ func (rtr *Router) handlePhysicalClientConn(conn net.Conn) {
 	cid := cconfig.ClientId
 	logger.Info("Client connected, id: ", cid)
 
+	if serverConf.UseAuthentication {
+		if serverConf.AuthorizedClients[cid] != cconfig.Secret {
+			logger.Warn("Authentication error, bad password for clientId: " + cid)
+			conn.Close()
+			return
+		}
+	}
 	// Setup server side of muxado
 	// session := muxado.Server(conn, nil)
 	// defer session.Close()
@@ -514,16 +526,18 @@ func (rtr *Router) executeAsSocks5(muxConn *TunnelTask) {
 // }
 
 // createMultiConn opens multiple connections to the given server
-func (rtr *Router) createMultiConn(serverAddress string, connType string, connCountInBundle int, proxyInfo *ProxyInfo) (*Tether, error) {
+func (rtr *Router) createMultiConn(serverAddress string, tConf *TetherConfig, connCountInBundle int, proxyInfo *ProxyInfo) (*Tether, error) {
+	myConf := *rtr.NetworkConfig
+	myConf.Secret = tConf.ClientPassword
 
-	jstr, err := json.Marshal(rtr.NetworkConfig)
+	jstr, err := json.Marshal(myConf)
 	if err != nil {
 		logger.Error("createMultiConn: problem in network config json marshaling: ", err)
 	}
 
 	th := NewTether(true)
 	for i := 0; i < connCountInBundle; i++ {
-		conn1 := dialConnection(connType, serverAddress, proxyInfo)
+		conn1 := dialConnection(tConf.ConnectionType, serverAddress, proxyInfo)
 
 		// read ID & config from the client
 		cconfig, err := readNetConfig(conn1)
@@ -658,9 +672,7 @@ func (rtr *Router) handleSocks5Connection(conn net.Conn) {
 	if rtr.AuthenticateSocks5 {
 		// connect & authenticate
 		cator = socks5.UserPassAuthenticator{
-			Credentials: socks5.StaticCredentials{
-				rtr.SocksUsername: rtr.SocksPass,
-			},
+			Credentials: rtr.socks5Credentials,
 		}
 	} else {
 		cator = socks5.NoAuthAuthenticator{}

@@ -64,7 +64,6 @@ func main() {
 		host, _ := os.Hostname()
 		//os.Create(confFile)
 		conf := agent.AgentConfig{
-			AuthenticateSocks5: false,
 			NetworkConfiguration: agent.ClientConfig{
 				ClientId: host,
 				Mapping:  make(map[string]string),
@@ -72,22 +71,30 @@ func main() {
 			Connections: []agent.TetherConfig{
 				agent.TetherConfig{
 					TargetPort:     10201,
-					TargetHost:     "<RemoteHost Address Or IP>",
+					TargetHost:     "[RemoteHost Address Or IP]",
 					ConnectionType: "tls",
-					ConnectionName: "<Some name or description like: network Node #2, should have Id = HomeComputer>",
-					Credentials:    "",
+					ConnectionName: "[Some name or description like: network Node #2, should have Id = HomeComputer]",
+					ClientPassword: "[Secret string for the client]",
 				},
 			},
 			Servers: []agent.ListenerConfig{
 				agent.ListenerConfig{
-					Port:      10101,
-					Type:      "Socks5",
-					LocalOnly: true,
+					Port:              10101,
+					Type:              "Socks5",
+					LocalOnly:         true,
+					UseAuthentication: true,
+					AuthorizedClients: map[string]string{
+						"socks5User": agent.GenerateRandomString(32),
+					},
 				},
 				agent.ListenerConfig{
-					Port:      10102,
-					Type:      "relayTcp",
-					LocalOnly: false,
+					Port:              10102,
+					Type:              "relayTcp",
+					LocalOnly:         false,
+					UseAuthentication: true,
+					AuthorizedClients: map[string]string{
+						"firstClient":   agent.GenerateRandomString(32),
+					},
 				},
 			},
 		}
@@ -110,18 +117,17 @@ func main() {
 
 	rtr := agent.NewRouter()
 	rtr.NetworkConfig = &cconf.NetworkConfiguration
-	rtr.AuthenticateSocks5 = cconf.AuthenticateSocks5
 
 	//facilitate all connections
 	for _, connConf := range cconf.Connections {
-		targetURI := connConf.TargetHost + ":" + strconv.Itoa(connConf.TargetPort)
 
 		// look for a proxy configuration in connection first, and afterwards in whole client conf (nil is ok if none exist)
-		proxy := connConf.Proxy
-		if proxy == nil {
-			proxy = cconf.Proxy
+		if connConf.Proxy == nil {
+			connConf.Proxy = cconf.Proxy
 		}
-		err := rtr.Connect(targetURI, connConf.ConnectionType, proxy, cconf.NumConnsPerTether)
+		err := rtr.Connect(&connConf, cconf.NumConnsPerTether)
+
+		targetURI := connConf.TargetHost + ":" + strconv.Itoa(connConf.TargetPort)
 		if err != nil {
 			logger.Error("Agent: failed to connect to "+targetURI+": ", err)
 		}
@@ -130,7 +136,7 @@ func main() {
 
 	//run all server listerners:
 	for _, listenConf := range cconf.Servers {
-		err := rtr.Serve(strconv.Itoa(listenConf.Port), listenConf.Type, listenConf.LocalOnly)
+		err := rtr.Serve(listenConf)
 		if err != nil {
 			logger.Error("Agent: failed to run listener: ", err)
 			return

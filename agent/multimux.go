@@ -64,6 +64,7 @@ func (m *MultiMux) handleSession(sess muxado.Session) {
 		//remove at end of session
 		for i, cn := range m.connections {
 			if sess == cn {
+				//TODO: verify that this works and removes the connection, verify thread safety
 				m.connections = append(m.connections[:i], m.connections[i+1:]...)
 				break
 			}

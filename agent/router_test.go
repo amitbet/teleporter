@@ -19,17 +19,53 @@ const (
 
 func TestRouter(t *testing.T) {
 	rtr1 := NewRouter()
-	rtr1.Serve("10101", "relayTcp")
+
+	relayPass := GenerateRandomString(32)
+	conf1 := ListenerConfig{
+		Port:              10101,
+		Type:              "relayTcp",
+		LocalOnly:         false,
+		UseAuthentication: true,
+		AuthorizedClients: map[string]string{
+			"relayUser": relayPass,
+		},
+	}
+
+	rtr1.Serve(conf1)
 	rtr1.NetworkConfig.ClientId = rtr1.NetworkConfig.ClientId + "1"
 
 	rtr2 := NewRouter()
 	rtr2.AuthenticateSocks5 = false
-	rtr2.Serve("10201", "relayTcp")
-	rtr2.Serve("10202", "socks5")
+	conf2relay := ListenerConfig{
+		Port:              10201,
+		Type:              "relayTcp",
+		LocalOnly:         false,
+		UseAuthentication: true,
+		AuthorizedClients: map[string]string{
+			rtr1.NetworkConfig.ClientId: relayPass,
+		},
+	}
+	conf2socks := ListenerConfig{
+		Port:              10202,
+		Type:              "socks5",
+		LocalOnly:         true,
+		UseAuthentication: false,
+	}
+	rtr2.Serve(conf2relay)
+	rtr2.Serve(conf2socks)
 	rtr2.NetworkConfig.ClientId = rtr2.NetworkConfig.ClientId + "2"
 
 	// create a tether between router1 & router2
-	rtr2.Connect("localhost:10101", "tls")
+	rtr2.Connect(
+		&TetherConfig{
+			TargetPort:     10101,
+			TargetHost:     "localhost",
+			ConnectionType: "tls",
+			ConnectionName: "stam1",
+			ClientPassword: relayPass,
+		},
+		10,
+	)
 
 	//buff := bytes.Buffer{}
 

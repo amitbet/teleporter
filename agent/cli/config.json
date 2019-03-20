@@ -2,25 +2,49 @@
     "servers": [
         {
             "port": 10101,
-            "type": "socks5",
-            "acceptLocalOnly": true
+            "type": "Socks5",
+            "acceptLocalOnly": true,
+            "useAuthentication": true,
+            "authClients": [
+                {
+                    "clientId": "socks5User",
+                    "secret": "KhShGWUywweqH1b7YylLo8BUebRzhExdYY2UaOw3EvU="
+                }
+            ]
+        },
+        {
+            "port": 10102,
+            "type": "relayTcp",
+            "acceptLocalOnly": false,
+            "useAuthentication": true,
+            "authClients": [
+                {
+                    "clientId": "firstClient",
+                    "secret": "4jcu1mVgTYFcOL3CT5SXNUyh8RGuSfyoyhpA9Yu6Udg="
+                }
+            ]
         }
     ],
     "tethers": [
         {
             "port": 10201,
-            "host": "127.0.0.1",
+            "host": "[RemoteHost Address Or IP]",
             "connectionType": "tls",
-            "connectionName": "miglamitb2",
-            "credentials": ""
+            "connectionName": "[Some name or description like: network Node #2, should have Id = HomeComputer]",
+            "proxy": null,
+            "credentials": {
+                "clientId": "[Client]",
+                "secret": "[Secret string for the client]"
+            }
         }
     ],
     "netConf": {
         "clientId": "MIGLAMITB",
         "networkMapping": {
-            "*google*": "MIGLAMITB2",
-			 "*": "local"
+            "*": "local"
         }
     },
-    "authenticateSocks5": false
+    "authenticateSocks5": false,
+    "proxy": null,
+    "numConnsPerTether": 0
 }

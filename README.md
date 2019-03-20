@@ -46,7 +46,9 @@ it is a simple, one binary super-server that breakes through network bounderies
 ## TODO:
 * KeepAlive messages for TLS connections
 * Authentication between nodes (clientId/Secret generation and storage)
-* Add VPN support
+* Add VPN support by using [gotun2socks](https://github.com/txthinking/gotun2socks) in a way similar to [brook](https://github.com/txthinking/brook)
 * DTLS realy (secure udp) support
 * Reconnect closed connections
 * implement High Availability by connecting multiple times through a LB util enough connections report containing a link to the requested target host.
+* Some embedded webUI (maybe experiment with [packr](https://github.com/gobuffalo/packr))   
+
