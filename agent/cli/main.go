@@ -64,6 +64,7 @@ func main() {
 		host, _ := os.Hostname()
 		//os.Create(confFile)
 		conf := agent.AgentConfig{
+			NumConnsPerTether: 10,
 			NetworkConfiguration: agent.ClientConfig{
 				ClientId: host,
 				Mapping:  make(map[string]string),
