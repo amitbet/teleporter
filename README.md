@@ -35,6 +35,18 @@ it is a simple, one binary super-server that breakes through network bounderies
 * Expose on-premise webservers to potential customers or cloud testing farms through socks5 +auth
 
 ## Usage:
+**Running release samples:**
+1. Download the latest build of Teleporter
+1. Use “run.bat” in any of the examples to run several nodes on localhost
+1. Configure your browser to use the socks5 proxy now running on localhost:10101 to see it in action.
+
+**Setting up a real network:**
+1. Spin up some free tier cloud machine (GCP will give you $300 for a year, with no obligations, just by feeding in credit card info, AWS
+1. free tier machines are also an option)
+1. Place a node on that machine & open the relay port to the public
+1. Deploy teleport nodes on your favorite machines & configure (see below) to construct your own custom slice of internet!
+
+**running samples from code:**
 1. go get github.com/amitbet/teleporter
 1. cd agent/cli
 1. go build .
