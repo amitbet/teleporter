@@ -46,7 +46,7 @@ it is a simple, one binary super-server that breakes through network bounderies
 1. Place a node on that machine & open the relay port to the public
 1. Deploy teleport nodes on your favorite machines & configure (see below) to construct your own custom slice of internet!
 
-**running samples from code:**
+**Running samples from code:**
 1. go get github.com/amitbet/teleporter
 1. cd agent/cli
 1. go build .
