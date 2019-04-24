@@ -1,6 +1,6 @@
 # Teleporter
 The Teleporter project allows you to create your own network,
-it is a simple, one binary super-server that breakes through network bounderies
+it is a simple, one binary super-server that breaks through network boundaries
 
 *Teleporter, while fully functional is still a beta. (Use at your own discression)*
 
