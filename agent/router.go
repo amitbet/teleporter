@@ -18,7 +18,7 @@ import (
 	"github.com/amitbet/go-socks5"
 	"github.com/amitbet/teleporter/logger"
 	proxy_dialer "github.com/mwitkow/go-http-dialer"
-	"github.com/pions/dtls"
+	//"github.com/pions/dtls"
 )
 
 type IMux interface {
@@ -129,6 +129,7 @@ func GenerateSocks5Req(task *TaskInfo) *socks5.Request {
 	return &req
 }
 
+// getTargetTether finds the path for a given request (task) and returns the next tether through which it should be routed
 func (rtr *Router) getTargetTether(taskInf *TaskInfo) (*Tether, error) {
 	var tID string
 
@@ -292,7 +293,7 @@ func (rtr *Router) Serve(serverConf ListenerConfig) error {
 			socksAddr = "localhost" + socksAddr
 		}
 		creds := serverConf.AuthorizedClients
-	
+
 		rtr.AuthenticateSocks5 = serverConf.UseAuthentication
 		rtr.socks5Credentials = creds
 		socks5Listener, err := rtr.createSocks5Listener(socksAddr)
@@ -312,13 +313,13 @@ func (rtr *Router) Serve(serverConf ListenerConfig) error {
 		go rtr.handleControlListener(controlListener, &serverConf)
 	case "relayUdp":
 		// udp is good for performance
-		listenAddr := ":" + port
-		controlListener1, err := createDtlsControlListener(listenAddr)
-		if err != nil {
-			logger.Error("problem with listening to port: ", port, err)
-			return err
-		}
-		go rtr.handleControlListener(controlListener1, &serverConf)
+		// listenAddr := ":" + port
+		// controlListener1, err := createDtlsControlListener(listenAddr)
+		// if err != nil {
+		// 	logger.Error("problem with listening to port: ", port, err)
+		// 	return err
+		// }
+		// go rtr.handleControlListener(controlListener1, &serverConf)
 	case "relayWebSockets":
 		// ws is good for passing firewalls
 		return errors.New("Not implemented")
@@ -454,32 +455,32 @@ func createTlsControlListener(listenAddress string) (net.Listener, error) {
 }
 
 // createDtlsControlListener creates a listener of type: udpRelay (with encryption = dtls)
-func createDtlsControlListener(listenAddress string) (net.Listener, error) {
-	var controlListener net.Listener
-	var err error
+// func createDtlsControlListener(listenAddress string) (net.Listener, error) {
+// 	var controlListener net.Listener
+// 	var err error
 
-	logger.Debug("createControlListener: running on dtls")
-	addr, err := net.ResolveUDPAddr("udp", listenAddress)
-	if err != nil {
-		return nil, err
-	}
+// 	logger.Debug("createControlListener: running on dtls")
+// 	addr, err := net.ResolveUDPAddr("udp", listenAddress)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	certificate, privateKey, err := dtls.GenerateSelfSigned()
-	if err != nil {
-		return nil, err
-	}
-	// Prepare the configuration of the DTLS connection
-	config := &dtls.Config{Certificate: certificate, PrivateKey: privateKey}
+// 	certificate, privateKey, err := dtls.GenerateSelfSigned()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// Prepare the configuration of the DTLS connection
+// 	config := &dtls.Config{Certificate: certificate, PrivateKey: privateKey}
 
-	// Connect to a DTLS server
-	controlListener, err = dtls.Listen("udp", addr, config)
+// 	// Connect to a DTLS server
+// 	controlListener, err = dtls.Listen("udp", addr, config)
 
-	if err != nil {
-		return nil, err
-	}
-	logger.Debug("createControlListener: Started server at " + listenAddress)
-	return controlListener, nil
-}
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	logger.Debug("createControlListener: Started server at " + listenAddress)
+// 	return controlListener, nil
+// }
 
 func (rtr *Router) executeAsSocks5(muxConn *TunnelTask) {
 	// read request from connection:
@@ -623,33 +624,24 @@ func dialConnection(typ string, serverAddress string, proxy *ProxyInfo) net.Conn
 			os.Exit(0)
 		}
 	} else if typ == "dtls" {
-		logger.Debug("running on dtls")
-		addr, err := net.ResolveUDPAddr("udp", serverAddress)
-		if err != nil {
-			logger.Error("Cannot resolve address: ", serverAddress, err)
-			os.Exit(0)
-		}
-
-		// client := &http.Client{
-		// 	Transport: &http.Transport{
-		// 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		// 		Proxy:           http.ProxyURL("proxyUrl"),
-		// 	},
+		// logger.Debug("running on dtls")
+		// addr, err := net.ResolveUDPAddr("udp", serverAddress)
+		// if err != nil {
+		// 	logger.Error("Cannot resolve address: ", serverAddress, err)
+		// 	os.Exit(0)
 		// }
 
-		//addr := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 4444}
+		// // Generate a certificate and private key to secure the connection
+		// certificate, privateKey, err := dtls.GenerateSelfSigned()
+		// if err != nil {
+		// 	panic(err)
+		// }
 
-		// Generate a certificate and private key to secure the connection
-		certificate, privateKey, err := dtls.GenerateSelfSigned()
-		if err != nil {
-			panic(err)
-		}
+		// // Prepare the configuration of the DTLS connection
+		// config := &dtls.Config{Certificate: certificate, PrivateKey: privateKey}
 
-		// Prepare the configuration of the DTLS connection
-		config := &dtls.Config{Certificate: certificate, PrivateKey: privateKey}
-
-		// Connect to a DTLS server
-		conn, err = dtls.Dial("udp", addr, config)
+		// // Connect to a DTLS server
+		// conn, err = dtls.Dial("udp", addr, config)
 	}
 	return conn
 }
