@@ -41,8 +41,7 @@ it is a simple, one binary super-server that breaks through network boundaries
 1. Configure your browser to use the socks5 proxy now running on localhost:10101 to see it in action.
 
 **Setting up a real network:**
-1. Spin up some free tier cloud machine (GCP will give you $300 for a year, with no obligations, just by feeding in credit card info, AWS
-1. free tier machines are also an option)
+1. Spin up some free tier cloud machine (GCP will give you $300 for a year, with no obligations, just by feeding in credit card info, AWS free tier machines are also an option)
 1. Place a node on that machine & open the relay port to the public
 1. Deploy teleport nodes on your favorite machines & configure (see below) to construct your own custom slice of internet!
 
